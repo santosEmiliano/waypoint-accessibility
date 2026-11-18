@@ -73,15 +73,26 @@ flowchart TD
     historial --> verFotos --> imagen
     analisis & atencion & resuelto -.->|"escribe historial"| bd
 
-    style acceso fill:#F5F5F5,stroke:#B3B3B3
-    style usuario fill:#C2E5FF,stroke:#3DADFF
-    style admin fill:#FFE0C2,stroke:#FF9E42
-    style seguimiento fill:#CDF4D3,stroke:#66D575
-    style tieneFoto fill:#FFECBD,stroke:#FFC943
-    style yaAsignado fill:#FFECBD,stroke:#FFC943
-    style rechazo fill:#FFCDC2,stroke:#FF7556
-    style conflicto fill:#FFCDC2,stroke:#FF7556
-    style resuelto fill:#CDF4D3,stroke:#66D575
+    classDef neutro fill:#F3F4F6,stroke:#6B7280,color:#111827
+    classDef usuarioNodo fill:#DBEAFE,stroke:#2563EB,color:#0F172A
+    classDef adminNodo fill:#FFEDD5,stroke:#EA580C,color:#431407
+    classDef seguimientoNodo fill:#DCFCE7,stroke:#16A34A,color:#052E16
+    classDef decision fill:#FEF3C7,stroke:#D97706,color:#451A03
+    classDef error fill:#FEE2E2,stroke:#DC2626,color:#450A0A
+    classDef exito fill:#BBF7D0,stroke:#15803D,color:#052E16
+
+    class inicio,salud,registro,login,sesion,perfil,catalogos,listar,bd neutro
+    class crear,fotoReporte,editar,cancelar,borrarFoto usuarioNodo
+    class detalle,asignar,analisis,atencion,acciones,fotoAtencion adminNodo
+    class historial,verFotos,imagen seguimientoNodo
+    class rol,yaAsignado,tieneFoto decision
+    class conflicto,rechazo error
+    class resuelto exito
+
+    style acceso fill:none,stroke:#6B7280,color:#6B7280
+    style usuario fill:none,stroke:#2563EB,color:#2563EB
+    style admin fill:none,stroke:#EA580C,color:#EA580C
+    style seguimiento fill:none,stroke:#16A34A,color:#16A34A
 ```
 
 ## Roles
