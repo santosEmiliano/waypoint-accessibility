@@ -174,14 +174,11 @@ UPDATE reportes SET <admin asignado> = 12 WHERE id = 7 AND <admin asignado> IS N
 
 Si afecta 0 filas, otro admin llegó primero y la API responde `409`. El cambio de estado funciona igual: `... WHERE id = 7 AND estado = 'En analisis'`. Si el estado ya cambió, la API responde `409` en lugar de pisar el cambio.
 
-Las consultas son de Julián (`docs/db-functions.md`) y la API decide qué responder.
-
 ## Preguntas abiertas
 
 **Para Julián (BD):**
 1. Las acciones correctivas, ¿se guardan en el historial (sin cambio de estado) o en una tabla propia?
-3. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
-4. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
-5. ¿El campo del admin asignado del borrador del ERD se queda?
-6. Para `GET /estados`: ¿los estados van en una tabla de catálogo o como lista fija (`CHECK` o `ENUM`) en la columna de reportes?
-7. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend (#45).
+2. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
+3. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
+4. Para `GET /estados`: ¿los estados van en una tabla de catálogo o como lista fija (`CHECK` o `ENUM`) en la columna de reportes?
+5. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend.
