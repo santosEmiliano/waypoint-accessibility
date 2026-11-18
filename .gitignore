@@ -1,0 +1,59 @@
+#          Secretos y configuración local
+
+#Para no subir el .env real
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+#          Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+#          Editores
+.idea/
+.vscode/
+*.iml
+*.swp
+
+#          Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/ephemeral/
+**/macos/Pods/
+**/macos/Flutter/ephemeral/
+**/windows/flutter/ephemeral/
+*.g.dart.bak
+
+#          Node.js (backend)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+
+#          Base de datos y Docker
+
+# Datos locales de la BD (volúmenes montados en carpetas)
+database/data/
+database/pgdata/
+*.sqlite
+*.sqlite3
+*.db
+
+#          Archivos subidos en desarrollo
+backend/uploads/
+
+#          Logs
+*.log
+logs/
