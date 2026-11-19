@@ -231,7 +231,7 @@ Errores, con su `codigo`:
 | `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
 | `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
 | `422` | `CONTRASENA_INCORRECTA` | Al editar el perfil, la contraseña actual no coincide. Es distinto de `401` para que la app no lo confunda con una sesión vencida |
-| `422` | `REPORTE_NO_EDITABLE` | Se intenta editar, cancelar o borrar una foto de un reporte que ya no está en Reportado |
+| `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir y borrar fotos fuera del estado permitido (ver cada endpoint) |
 | `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
 | `422` | `FALTA_EVIDENCIA_ATENCION` | Se pide Resuelto sin ninguna foto de tipo `atencion` |
 | `429` | `DEMASIADOS_INTENTOS` | Demasiados intentos de login fallidos seguidos |
@@ -530,6 +530,101 @@ Errores: `400 VALIDACION` (un filtro con formato inválido).
 Sin cuerpo. Respuesta `200`: `{ "reporte": { ... } }` con la forma de arriba. Si el reporte está cancelado, se devuelve igual con `canceladoReporte` en `true`.
 
 Errores: `404 NO_ENCONTRADO` (no existe, o es de otro usuario).
+
+#### `PUT /reportes/:id`
+
+Solo el creador, y solo mientras el reporte está en Reportado y no está cancelado. Se manda el reporte completo con los mismos campos y reglas que al crearlo:
+
+```json
+{
+  "tituloReporte": "Rampa rota en el edificio 1",
+  "descripcionReporte": "La grieta ya llega a la orilla de la rampa.",
+  "idCategoria": 1,
+  "ubicacionReporte": "Edificio 1, entrada norte",
+  "latitudReporte": 21.913560,
+  "longitudReporte": -102.315020
+}
+```
+
+Respuesta `200`: `{ "reporte": { ... } }` con los cambios. Se escribe el historial de tipo `edicion`.
+
+La actualización lleva la condición del estado en el `WHERE`: si un operador lo pasó a En análisis mientras se editaba, no se aplica y responde `422`.
+
+Errores: `400 VALIDACION`, `403 SIN_PERMISO` (un operador intenta editar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
+
+#### `DELETE /reportes/:id`
+
+Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Sin cuerpo. Respuesta `204`.
+
+No se borra de la BD: se marca `canceladoReporte` en `true` y se escribe el historial de tipo `cancelacion`.
+
+Errores: `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
+
+### Evidencias
+
+#### Cómo se ve una evidencia
+
+```json
+{
+  "idEvidencia": 31,
+  "tipoEvidencia": "reporte",
+  "rutaEvidencia": "/uploads/3f2b8c1e-9a4d-4e7b-b1c2-5d6e7f8a9b0c.jpg",
+  "creacionEvidencia": "2026-11-19T18:32:00Z",
+  "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" }
+}
+```
+
+`rutaEvidencia` es la dirección para mostrar la imagen con `GET /uploads/<archivo>`. `usuario` es quien subió la foto.
+
+#### `POST /reportes/:id/evidencias`
+
+Sube una foto por petición, como `multipart/form-data` con el campo `imagen`. Reglas del archivo:
+
+- Solo JPG o PNG.
+- Tamaño máximo: `MAX_UPLOAD_MB` del `.env` (5 MB en el ejemplo).
+- El nombre lo genera el servidor; el nombre original se descarta.
+
+Quién puede subir y de qué tipo queda la foto (la app no manda el tipo):
+
+| Quién | Cuándo | Tipo |
+|---|---|---|
+| Creador del reporte | Mientras está en Reportado | `reporte` |
+| Operador asignado | Mientras está en En análisis o En atención | `atencion` |
+
+Respuesta `201`: `{ "evidencia": { ... } }` con la forma de arriba.
+
+Errores: `400 VALIDACION` (no viene el campo `imagen`), `403 SIN_PERMISO` (no es el creador ni el operador asignado), `404 NO_ENCONTRADO`, `413 ARCHIVO_DEMASIADO_GRANDE`, `415 TIPO_ARCHIVO_INVALIDO`, `422 REPORTE_NO_EDITABLE` (el reporte ya no admite fotos de ese tipo).
+
+#### `GET /reportes/:id/evidencias`
+
+Sin cuerpo. Respuesta `200`, con las fotos de los dos tipos de la más antigua a la más reciente:
+
+```json
+{
+  "evidencias": [
+    { "idEvidencia": 31, "tipoEvidencia": "reporte" },
+    { "idEvidencia": 40, "tipoEvidencia": "atencion" }
+  ]
+}
+```
+
+Cada elemento tiene la forma completa de una evidencia; en el ejemplo se recortó.
+
+Errores: `404 NO_ENCONTRADO` (el reporte no existe o es de otro usuario).
+
+#### `DELETE /reportes/:id/evidencias/:evidenciaId`
+
+Solo quien subió la foto, con las mismas ventanas de tiempo que para subirla: el creador mientras el reporte está en Reportado, y el operador asignado mientras no esté Resuelto. Sin cuerpo. Respuesta `204`.
+
+Se borra el registro de la BD y la API borra el archivo del disco. Si era la única foto de atención, el reporte no puede pasar a Resuelto hasta que se suba otra.
+
+Errores: `403 SIN_PERMISO` (no la subió quien la quiere borrar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
+
+#### `GET /uploads/<archivo>`
+
+Devuelve la imagen tal cual (no JSON), con su tipo (`image/jpeg` o `image/png`). Pide el token como el resto de las rutas protegidas.
+
+Errores: `404 NO_ENCONTRADO`.
 
 ## Concurrencia
 
