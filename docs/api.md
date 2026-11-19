@@ -125,9 +125,33 @@ La BD usa snake_case con sufijo (`nombre_usuario`, `descripcion_reporte`). La AP
 
 `contrasenaUsuario` nunca aparece en una respuesta.
 
-Pendiente para la reunión del #10: si la traducción la hacen las funciones de la BD (con un alias en el `SELECT`) o los controladores.
+Pendiente para la reunión del issue #10: si la traducción la hacen las funciones de la BD (con un alias en el `SELECT`) o los controladores.
 
 El modelo completo está en `docs/db/` y los acuerdos entre la BD y la API en `docs/db/acuerdos-bd-api.md`.
+
+Las fechas se devuelven en formato ISO 8601 (`2026-11-19T18:30:00Z`).
+
+## Autenticación
+
+- El login y el registro devuelven un **token**. La app lo guarda y lo manda en cada petición protegida:
+
+  ```
+  Authorization: Bearer <token>
+  ```
+
+- Si el token falta, es inválido o ya venció, cualquier ruta protegida responde `401 NO_AUTENTICADO` y la app regresa al login.
+- **Cerrar sesión** no tiene endpoint: la app borra el token guardado.
+- La contraseña nunca se devuelve en una respuesta.
+
+Cómo se genera y se verifica el token, cuánto dura, qué lleva dentro y cómo se hace el hash de la contraseña lo define Julián en el middleware de autenticación (#22). Este contrato solo fija cómo lo recibe y lo manda la app.
+
+Reglas de validación de los datos de la cuenta, iguales a los límites de la BD. Las aplica el middleware de validación (#34):
+
+| Campo | Regla |
+|---|---|
+| `nombreUsuario` | Obligatorio, de 1 a 100 caracteres |
+| `correoUsuario` | Obligatorio, formato de correo, hasta 200 caracteres |
+| `contrasenaUsuario` | Obligatoria, mínimo 8 caracteres |
 
 ## Errores
 
@@ -271,6 +295,102 @@ El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda
 Se dejan separados a propósito, en lugar de un solo `PATCH /reportes/:id` con campos opcionales: cada uno tiene permisos, validaciones e historial distintos, y así se prueban y se explican por separado.
 
 Un usuario común que llame a estas rutas recibe `403`.
+
+## Detalle de los endpoints
+
+Cada endpoint con lo que manda la app, lo que responde la API y sus errores. Todas las rutas pueden responder además `500 ERROR_INTERNO`, y las protegidas `401 NO_AUTENTICADO`.
+
+### Acceso
+
+#### `GET /health`
+
+Sin cuerpo. Respuesta `200`:
+
+```json
+{ "estado": "ok" }
+```
+
+#### `POST /auth/registro`
+
+Petición:
+
+```json
+{
+  "nombreUsuario": "Ana López",
+  "correoUsuario": "ana@ejemplo.com",
+  "contrasenaUsuario": "una-contraseña-segura"
+}
+```
+
+Respuesta `201`. Devuelve el token para que la app entre sin pedir el login otra vez:
+
+```json
+{
+  "token": "<token>",
+  "usuario": {
+    "idUsuario": 5,
+    "nombreUsuario": "Ana López",
+    "correoUsuario": "ana@ejemplo.com",
+    "nombreRol": "usuario",
+    "creacionUsuario": "2026-11-19T18:30:00Z"
+  }
+}
+```
+
+La cuenta siempre nace con rol `usuario`, aunque la petición mande otro.
+
+Errores: `400 VALIDACION`, `409 CORREO_REGISTRADO`.
+
+#### `POST /auth/login`
+
+Petición:
+
+```json
+{
+  "correoUsuario": "ana@ejemplo.com",
+  "contrasenaUsuario": "una-contraseña-segura"
+}
+```
+
+Respuesta `200`: igual que el registro (`token` y `usuario`).
+
+Errores: `400 VALIDACION` (falta un campo), `401 CREDENCIALES_INVALIDAS`, `429 DEMASIADOS_INTENTOS`.
+
+#### `GET /auth/usuario`
+
+Sin cuerpo; solo el token. Respuesta `200`:
+
+```json
+{
+  "usuario": {
+    "idUsuario": 5,
+    "nombreUsuario": "Ana López",
+    "correoUsuario": "ana@ejemplo.com",
+    "nombreRol": "usuario",
+    "creacionUsuario": "2026-11-19T18:30:00Z"
+  }
+}
+```
+
+La app usa `nombreRol` para decidir qué pantallas mostrar.
+
+#### `PUT /auth/usuario`
+
+Petición con al menos uno de los cambios. Para cambiar la contraseña se manda la actual y la nueva:
+
+```json
+{
+  "nombreUsuario": "Ana María López",
+  "contrasenaActual": "una-contraseña-segura",
+  "contrasenaNueva": "otra-contraseña-segura"
+}
+```
+
+Respuesta `200`: el `usuario` actualizado, igual que en `GET /auth/usuario`.
+
+El correo y el rol no se pueden cambiar; si la petición los trae, se ignoran.
+
+Errores: `400 VALIDACION`, `401 CREDENCIALES_INVALIDAS` (la contraseña actual no coincide). La app distingue este caso del token vencido por el `codigo`, no por el número `401`.
 
 ## Concurrencia
 
