@@ -167,6 +167,39 @@ La app decide puede decidir que mostrar: puede pintar cada mensaje de `campos` d
 - **`campos` solo describe el formato** ("Formato inválido", "Es obligatorio"), nunca el contenido de la BD ("Este correo no existe").
 - **El login limita los intentos.** Después de varios intentos fallidos seguidos, responde `429`, se usara un rate_limit.
 
+### Códigos HTTP
+
+Respuestas correctas:
+
+| Código | Cuándo |
+|---|---|
+| `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado) |
+| `201` | Se creó algo nuevo (cuenta, reporte, evidencia, acción correctiva) |
+| `204` | Se completó sin nada que devolver (cancelar un reporte, borrar una evidencia) |
+
+Errores, con su `codigo`:
+
+| HTTP | `codigo` | Cuándo |
+|---|---|---|
+| `400` | `VALIDACION` | Falta un campo o tiene formato inválido. Es el único que lleva `campos` |
+| `401` | `NO_AUTENTICADO` | No hay token, es inválido o ya expiró. La app manda al usuario al login |
+| `401` | `CREDENCIALES_INVALIDAS` | Correo o contraseña incorrectos en el login |
+| `403` | `SIN_PERMISO` | El rol no puede usar esa ruta (un `usuario` en administración) o el operador no es el asignado al reporte |
+| `404` | `NO_ENCONTRADO` | El reporte o la evidencia no existe. Un `usuario` también lo recibe si pide un reporte de otra persona, para no confirmar que existe |
+| `404` | `RUTA_NO_ENCONTRADA` | La ruta no existe en la API |
+| `409` | `CORREO_REGISTRADO` | El correo del registro ya tiene cuenta |
+| `409` | `REPORTE_YA_ASIGNADO` | Otro operador tomó el reporte primero |
+| `409` | `ESTADO_DESACTUALIZADO` | Alguien cambió el estado del reporte mientras se pedía el cambio. La app vuelve a consultar el reporte |
+| `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
+| `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
+| `422` | `REPORTE_NO_EDITABLE` | Se intenta editar, cancelar o borrar una foto de un reporte que ya no está en Reportado |
+| `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
+| `422` | `FALTA_EVIDENCIA_ATENCION` | Se pide Resuelto sin ninguna foto de tipo `atencion` |
+| `429` | `DEMASIADOS_INTENTOS` | Demasiados intentos de login fallidos seguidos |
+| `500` | `ERROR_INTERNO` | Cualquier falla del servidor o de la BD |
+
+La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con datos que ya existen (otro operador llegó primero, el correo ya está registrado); el `422` es una petición bien formada que rompe una regla del sistema (saltarse un estado, resolver sin foto).
+
 ## Endpoints
 
 ### Acceso
