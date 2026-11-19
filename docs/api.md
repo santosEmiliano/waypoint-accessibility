@@ -16,6 +16,7 @@ flowchart TD
         login["POST /auth/login"]
         sesion["GET /auth/usuario (devuelve el rol)"]
         perfil["PUT /auth/usuario (nombre o contraseña)"]
+        salir["POST /auth/logout"]
     end
 
     catalogos["GET /categorias y GET /estados"]
@@ -54,6 +55,7 @@ flowchart TD
 
     inicio --> salud --> registro --> login --> sesion
     sesion -.-> perfil
+    sesion -.-> salir
     sesion --> catalogos --> rol
     rol -->|"usuario"| crear
     rol -->|"operador"| listar
@@ -81,7 +83,7 @@ flowchart TD
     classDef error fill:#FEE2E2,stroke:#DC2626,color:#450A0A
     classDef exito fill:#BBF7D0,stroke:#15803D,color:#052E16
 
-    class inicio,salud,registro,login,sesion,perfil,catalogos,listar,bd neutro
+    class inicio,salud,registro,login,sesion,perfil,salir,catalogos,listar,bd neutro
     class crear,fotoReporte,editar,cancelar,borrarFoto usuarioNodo
     class detalle,asignar,analisis,atencion,acciones,fotoAtencion operadorNodo
     class historial,verFotos,imagen seguimientoNodo
@@ -140,7 +142,7 @@ Las fechas se devuelven en formato ISO 8601 (`2026-11-19T18:30:00Z`).
   ```
 
 - Si el token falta, es inválido o ya venció, cualquier ruta protegida responde `401 NO_AUTENTICADO` y la app regresa al login.
-- **Cerrar sesión** no tiene endpoint: la app borra el token guardado.
+- **Cerrar sesión** invalida el token también en el backend (`POST /auth/logout`), no solo en la app. Así, si alguien interceptó el token, deja de servir en cuanto el usuario cierra sesión. Después la app borra el token guardado.
 - La contraseña nunca se devuelve en una respuesta.
 
 Cómo se genera y se verifica el token, cuánto dura, qué lleva dentro y cómo se hace el hash de la contraseña lo define Julián en el middleware de autenticación (#22). Este contrato solo fija cómo lo recibe y lo manda la app.
@@ -247,6 +249,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | `POST` | `/auth/login` | Público | Iniciar sesión y recibir el token | #24 |
 | `GET` | `/auth/usuario` | Autenticado | Datos del usuario de la sesión, incluido su rol. Es la misma ruta para `usuario` y `operador` | #24 |
 | `PUT` | `/auth/usuario` | Autenticado | Editar su nombre o su contraseña desde la pantalla de perfil. Para cambiar la contraseña pide la actual. No permite cambiar el rol | #24 |
+| `POST` | `/auth/logout` | Autenticado | Cerrar sesión: el token deja de ser válido en el servidor | #24 |
 
 ### Catálogos
 
@@ -391,6 +394,14 @@ Respuesta `200`: el `usuario` actualizado, igual que en `GET /auth/usuario`.
 El correo y el rol no se pueden cambiar; si la petición los trae, se ignoran.
 
 Errores: `400 VALIDACION`, `401 CREDENCIALES_INVALIDAS` (la contraseña actual no coincide). La app distingue este caso del token vencido por el `codigo`, no por el número `401`.
+
+#### `POST /auth/logout`
+
+Sin cuerpo; solo el token. Respuesta `204` sin contenido.
+
+A partir de ese momento el token responde `401 NO_AUTENTICADO` en cualquier ruta, aunque no haya vencido. Si el token ya no era válido, también responde `204`, para que la app pueda cerrar sesión sin importar el estado del token.
+
+Cómo se invalida el token (sesiones guardadas en la BD, lista de tokens revocados u otra forma) lo define Julián junto con el middleware de autenticación (#22).
 
 ## Concurrencia
 
