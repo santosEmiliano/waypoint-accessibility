@@ -148,7 +148,7 @@ Los errores de validación agregan `campos`, con el problema de cada campo del f
 }
 ```
 
-La app decide puede decidir que mostrar: puede pintar cada mensaje de `campos` debajo de su campo o mostrar solo el `mensaje` general.
+La app decide que mostrar: puede pintar cada mensaje de `campos` debajo de su campo o mostrar solo el `mensaje` general.
 
 ### Reglas de seguridad
 
