@@ -1,6 +1,6 @@
 # API de Waypoint
 
-> **Versión 0: borrador de endpoints (issue #6).** Aquí solo está la lista de rutas, quién puede usarlas y para qué. Los cuerpos JSON, las respuestas y los códigos de error se agregan en el contrato v1 (issue #9).
+> **Versión 1: contrato de la API (issue #9).** Rutas, quién puede usarlas, lo que manda la app, lo que responde la API y sus errores. Se congela en la reunión del #10; después de eso, cualquier cambio se habla con el equipo antes de hacerse.
 
 ## Flujo
 
@@ -293,7 +293,7 @@ El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda
 | Método | Ruta | Para qué | Issue |
 |---|---|---|---|
 | `PATCH` | `/reportes/:id/asignar` | El operador toma el reporte. Si otro operador ya lo tomó, responde error | #38 |
-| `PATCH` | `/reportes/:id/estado` | Avanzar al siguiente estado. Valida la transición y, para Resuelto, que exista la foto de atención | #36, #37, #38 |
+| `PATCH` | `/reportes/:id/estado` | Pasar al siguiente estado: la app manda el estado nuevo y la API valida que sea el siguiente y, para Resuelto, que exista la foto de atención | #36, #37, #38 |
 | `POST` | `/reportes/:id/acciones` | Registrar una acción correctiva (por ejemplo, "se colocó una rampa temporal"). Se guarda en el historial con tipo `accion_correctiva` y no cambia el estado | #38 |
 
 Se dejan separados a propósito, en lugar de un solo `PATCH /reportes/:id` con campos opcionales: cada uno tiene permisos, validaciones e historial distintos, y así se prueban y se explican por separado.
@@ -625,6 +625,111 @@ Errores: `403 SIN_PERMISO` (no la subió quien la quiere borrar), `404 NO_ENCONT
 Devuelve la imagen tal cual (no JSON), con su tipo (`image/jpeg` o `image/png`). Pide el token como el resto de las rutas protegidas.
 
 Errores: `404 NO_ENCONTRADO`.
+
+### Historial
+
+#### `GET /reportes/:id/historial`
+
+Sin cuerpo. Solo el creador o un operador. Respuesta `200`, de lo más antiguo a lo más reciente, como una línea de tiempo:
+
+```json
+{
+  "historial": [
+    {
+      "idHistorial": 101,
+      "tipoHistorial": "creacion",
+      "estadoAnterior": null,
+      "estadoNuevo": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
+      "descripcionHistorial": null,
+      "creacionHistorial": "2026-11-19T18:30:00Z",
+      "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" }
+    },
+    {
+      "idHistorial": 108,
+      "tipoHistorial": "cambio_estado",
+      "estadoAnterior": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
+      "estadoNuevo": { "idEstado": 2, "nombreEstado": "En análisis", "ordenEstado": 2 },
+      "descripcionHistorial": "Se revisó en sitio",
+      "creacionHistorial": "2026-11-20T09:15:00Z",
+      "usuario": { "idUsuario": 12, "nombreUsuario": "Operador de prueba" }
+    }
+  ]
+}
+```
+
+`usuario` es quien hizo el movimiento. Qué trae cada tipo:
+
+| `tipoHistorial` | `estadoAnterior` y `estadoNuevo` | `descripcionHistorial` |
+|---|---|---|
+| `creacion` | Solo `estadoNuevo` (Reportado) | `null` |
+| `edicion` | `null` | `null` |
+| `asignacion` | `null` | `null` |
+| `cambio_estado` | Los dos | El comentario del operador, si lo mandó |
+| `accion_correctiva` | `null` | La acción que se hizo |
+| `cancelacion` | `null` | `null` |
+
+El historial no se modifica ni se borra. La app puede filtrarlo por tipo si solo quiere mostrar, por ejemplo, los cambios de estado.
+
+Errores: `404 NO_ENCONTRADO` (el reporte no existe o es de otro usuario).
+
+### Administración
+
+Las tres rutas son solo para el rol `operador`. Un `usuario` recibe `403 SIN_PERMISO`.
+
+#### `PATCH /reportes/:id/asignar`
+
+Sin cuerpo. El operador de la sesión toma el reporte. Respuesta `200`: `{ "reporte": { ... } }` con `operador` lleno. Se escribe el historial de tipo `asignacion`.
+
+Si el reporte ya era de ese mismo operador, responde `200` sin cambios.
+
+Errores: `403 SIN_PERMISO`, `404 NO_ENCONTRADO`, `409 REPORTE_YA_ASIGNADO` (otro operador lo tomó primero), `422 REPORTE_NO_EDITABLE` (está cancelado o Resuelto).
+
+#### `PATCH /reportes/:id/estado`
+
+Solo el operador asignado al reporte. La app manda el estado al que quiere pasar y, si quiere, un comentario:
+
+```json
+{
+  "idEstado": 2,
+  "descripcionHistorial": "Se revisó en sitio"
+}
+```
+
+| Campo | Regla |
+|---|---|
+| `idEstado` | Obligatorio, un estado que exista |
+| `descripcionHistorial` | Opcional, hasta 2000 caracteres |
+
+La API compara el estado que manda la app con el actual:
+
+| El estado que manda la app es… | Respuesta |
+|---|---|
+| El siguiente (orden actual + 1) | `200`: cambia el estado y escribe el historial de tipo `cambio_estado` |
+| Igual al actual (alguien ya lo movió ahí) | `409 ESTADO_DESACTUALIZADO`: la app vuelve a consultar el reporte |
+| Se salta un paso, retrocede, o el reporte ya está Resuelto | `422 TRANSICION_INVALIDA` |
+| Resuelto, sin ninguna foto de tipo `atencion` | `422 FALTA_EVIDENCIA_ATENCION` |
+
+La app manda el estado de destino, en lugar de pedir "el siguiente", para que una pantalla desactualizada o un doble clic no avancen el reporte dos veces.
+
+Respuesta `200`: `{ "reporte": { ... } }` con el estado nuevo.
+
+Errores: `400 VALIDACION`, `403 SIN_PERMISO` (no es el operador asignado), `404 NO_ENCONTRADO`, `409 ESTADO_DESACTUALIZADO`, `422 TRANSICION_INVALIDA`, `422 FALTA_EVIDENCIA_ATENCION`.
+
+#### `POST /reportes/:id/acciones`
+
+Solo el operador asignado, mientras el reporte está en En análisis o En atención. Petición:
+
+```json
+{
+  "descripcionHistorial": "Se colocó una rampa temporal mientras llega la reparación."
+}
+```
+
+`descripcionHistorial` es obligatoria, de 1 a 2000 caracteres.
+
+Respuesta `201`: `{ "historial": { ... } }` con el renglón creado, de tipo `accion_correctiva`, con la forma de `GET /reportes/:id/historial`. No cambia el estado.
+
+Errores: `400 VALIDACION`, `403 SIN_PERMISO`, `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (el reporte no está en En análisis ni en En atención).
 
 ## Concurrencia
 
