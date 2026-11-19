@@ -19,7 +19,7 @@ flowchart TD
     end
 
     catalogos["GET /categorias y GET /estados"]
-    listar["GET /reportes (usuario: los suyos, admin: todos)"]
+    listar["GET /reportes (usuario: los suyos, operador: todos)"]
     rol{"Rol del token"}
 
     subgraph usuario ["2. Usuario reporta"]
@@ -30,10 +30,10 @@ flowchart TD
         borrarFoto["DELETE /reportes/:id/evidencias/:evidenciaId"]
     end
 
-    subgraph admin ["3. Admin atiende"]
+    subgraph operador ["3. Operador atiende"]
         detalle["GET /reportes/:id"]
         asignar["PATCH /reportes/:id/asignar"]
-        yaAsignado{"¿Ya lo tomó otro admin?"}
+        yaAsignado{"¿Ya lo tomó otro operador?"}
         conflicto["409: ya está asignado"]
         analisis["PATCH /reportes/:id/estado (En análisis)"]
         atencion["PATCH /reportes/:id/estado (En atención)"]
@@ -44,7 +44,7 @@ flowchart TD
         rechazo["Error: falta la foto"]
     end
 
-    subgraph seguimiento ["4. Seguimiento (creador o admin)"]
+    subgraph seguimiento ["4. Seguimiento (creador u operador)"]
         historial["GET /reportes/:id/historial"]
         verFotos["GET /reportes/:id/evidencias"]
         imagen["GET /uploads/archivo"]
@@ -56,12 +56,12 @@ flowchart TD
     sesion -.-> perfil
     sesion --> catalogos --> rol
     rol -->|"usuario"| crear
-    rol -->|"admin"| listar
+    rol -->|"operador"| listar
     crear --> fotoReporte --> listar
     fotoReporte -.-> borrarFoto
     listar -.->|"creador"| editar
     listar -.->|"creador"| cancelar
-    listar -->|"admin"| detalle --> asignar --> yaAsignado
+    listar -->|"operador"| detalle --> asignar --> yaAsignado
     yaAsignado -->|"Sí"| conflicto
     yaAsignado -->|"No"| analisis
     analisis --> atencion --> acciones --> fotoAtencion --> tieneFoto
@@ -75,7 +75,7 @@ flowchart TD
 
     classDef neutro fill:#F3F4F6,stroke:#6B7280,color:#111827
     classDef usuarioNodo fill:#DBEAFE,stroke:#2563EB,color:#0F172A
-    classDef adminNodo fill:#FFEDD5,stroke:#EA580C,color:#431407
+    classDef operadorNodo fill:#FFEDD5,stroke:#EA580C,color:#431407
     classDef seguimientoNodo fill:#DCFCE7,stroke:#16A34A,color:#052E16
     classDef decision fill:#FEF3C7,stroke:#D97706,color:#451A03
     classDef error fill:#FEE2E2,stroke:#DC2626,color:#450A0A
@@ -83,7 +83,7 @@ flowchart TD
 
     class inicio,salud,registro,login,sesion,perfil,catalogos,listar,bd neutro
     class crear,fotoReporte,editar,cancelar,borrarFoto usuarioNodo
-    class detalle,asignar,analisis,atencion,acciones,fotoAtencion adminNodo
+    class detalle,asignar,analisis,atencion,acciones,fotoAtencion operadorNodo
     class historial,verFotos,imagen seguimientoNodo
     class rol,yaAsignado,tieneFoto decision
     class conflicto,rechazo error
@@ -91,7 +91,7 @@ flowchart TD
 
     style acceso fill:none,stroke:#6B7280,color:#6B7280
     style usuario fill:none,stroke:#2563EB,color:#2563EB
-    style admin fill:none,stroke:#EA580C,color:#EA580C
+    style operador fill:none,stroke:#EA580C,color:#EA580C
     style seguimiento fill:none,stroke:#16A34A,color:#16A34A
 ```
 
@@ -100,9 +100,9 @@ flowchart TD
 | Rol | Quién es |
 |---|---|
 | `usuario` | Reporta obstáculos y consulta el seguimiento de sus reportes |
-| `admin` | Analiza los reportes, cambia su estado, documenta las acciones correctivas y sube la foto de la atención |
+| `operador` | Analiza los reportes, cambia su estado, documenta las acciones correctivas y sube la foto de la atención |
 
-Todas las cuentas que se crean con `POST /auth/registro` nacen como `usuario`. Los admin vienen de la semilla de la BD.
+Todas las cuentas que se crean con `POST /auth/registro` nacen como `usuario`. Los operadores vienen de la semilla de la BD.
 
 En las tablas, **"creador"** no es un rol: es el usuario que hizo ese reporte. Un usuario no puede ver ni modificar los reportes de otro.
 
@@ -112,10 +112,22 @@ Los permisos se comprueban en el backend en cada ruta. Las rutas que no son púb
 
 `Reportado → En análisis → En atención → Resuelto`
 
-- Solo el admin cambia el estado, un paso a la vez. No hay saltos ni retrocesos.
-- Solo el admin asignado al reporte puede cambiar su estado.
+- Solo el operador cambia el estado, un paso a la vez. No hay saltos ni retrocesos.
+- Solo el operador asignado al reporte puede cambiar su estado.
 - Para pasar a Resuelto debe existir al menos una evidencia de tipo `atencion`.
-- Cada cambio de estado queda en el historial.
+- Los estados viven en la tabla `estados` con su `orden_estado` (Reportado = 1, En análisis = 2, En atención = 3, Resuelto = 4). Un cambio es válido solo si el orden del estado nuevo es el del actual + 1. El orden nunca se toma del id.
+- Un reporte nuevo nace en el estado con orden 1.
+- Cada operación sobre un reporte queda en el historial con su tipo: `creacion`, `edicion`, `asignacion`, `cambio_estado`, `accion_correctiva` y `cancelacion`.
+
+## Nombres de los campos
+
+La BD usa snake_case con sufijo (`nombre_usuario`, `descripcion_reporte`). La API responde en camelCase con el mismo sufijo (`nombreUsuario`, `descripcionReporte`), que es la convención de JavaScript y de Dart. Los ids siguen la misma regla: `id_reporte` se vuelve `idReporte`.
+
+`contrasenaUsuario` nunca aparece en una respuesta.
+
+Pendiente para la reunión del #10: si la traducción la hacen las funciones de la BD (con un alias en el `SELECT`) o los controladores.
+
+El modelo completo está en `docs/db/` y los acuerdos entre la BD y la API en `docs/db/acuerdos-bd-api.md`.
 
 ## Errores
 
@@ -209,7 +221,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | `GET` | `/health` | Público | Comprobar que el servidor responde. La app lo usa para saber si hay conexión | #17 |
 | `POST` | `/auth/registro` | Público | Crear una cuenta con rol `usuario` | #24 |
 | `POST` | `/auth/login` | Público | Iniciar sesión y recibir el token | #24 |
-| `GET` | `/auth/usuario` | Autenticado | Datos del usuario de la sesión, incluido su rol. Es la misma ruta para `usuario` y `admin` | #24 |
+| `GET` | `/auth/usuario` | Autenticado | Datos del usuario de la sesión, incluido su rol. Es la misma ruta para `usuario` y `operador` | #24 |
 | `PUT` | `/auth/usuario` | Autenticado | Editar su nombre o su contraseña desde la pantalla de perfil. Para cambiar la contraseña pide la actual. No permite cambiar el rol | #24 |
 
 ### Catálogos
@@ -223,36 +235,38 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 
 | Método | Ruta | Quién | Para qué | Issue |
 |---|---|---|---|---|
-| `POST` | `/reportes` | `usuario` | Crear un reporte con categoría, descripción y ubicación. Nace en Reportado | #30 |
-| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `admin` recibe todos. Filtros opcionales: `?estado=&categoria=&q=` | #30 |
-| `GET` | `/reportes/:id` | Creador o `admin` | Detalle del reporte | #30 |
-| `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el admin lo empieza a analizar ya no se puede editar | #30 |
+| `POST` | `/reportes` | `usuario` | Crear un reporte con título, categoría, descripción y ubicación. Nace en Reportado | #30 |
+| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?estado=&categoria=&q=` | #30 |
+| `GET` | `/reportes/:id` | Creador u `operador` | Detalle del reporte | #30 |
+| `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el operador lo empieza a analizar ya no se puede editar | #30 |
 | `DELETE` | `/reportes/:id` | Creador, solo en Reportado | Cancelar el reporte (eliminación lógica, no se borra de la BD) | #30 |
 
 ### Evidencias
 
 | Método | Ruta | Quién | Para qué | Issue |
 |---|---|---|---|---|
-| `POST` | `/reportes/:id/evidencias` | Creador o `admin` asignado | Subir una foto. El backend decide el tipo según el rol: `reporte` si la sube el usuario, `atencion` si la sube el admin | #45 |
-| `GET` | `/reportes/:id/evidencias` | Creador o `admin` | Fotos del reporte, de los dos tipos | #45 |
-| `DELETE` | `/reportes/:id/evidencias/:evidenciaId` | Quien la subió | Quitar una foto subida por error. El creador solo mientras el reporte está en Reportado; el admin, sus fotos de `atencion` mientras no esté Resuelto. Si es la única foto de atención, el reporte ya no puede pasar a Resuelto | #45 |
+| `POST` | `/reportes/:id/evidencias` | Creador u `operador` asignado | Subir una foto. El backend decide el tipo según el rol: `reporte` si la sube el usuario, `atencion` si la sube el operador | #45 |
+| `GET` | `/reportes/:id/evidencias` | Creador u `operador` | Fotos del reporte, de los dos tipos | #45 |
+| `DELETE` | `/reportes/:id/evidencias/:evidenciaId` | Quien la subió | Quitar una foto subida por error. El creador solo mientras el reporte está en Reportado; el operador, sus fotos de `atencion` mientras no esté Resuelto. Si es la única foto de atención, el reporte ya no puede pasar a Resuelto | #45 |
 | `GET` | `/uploads/<archivo>` | Autenticado | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
 
 El reporte se crea primero (`POST /reportes`, en JSON) y las fotos se suben después, una por petición. Así un solo endpoint de subida sirve para los dos roles.
+
+El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda la app, para evitar rutas maliciosas como `../../archivo`. En la BD solo se guarda la ruta. Borrar una foto elimina el registro y la API borra el archivo del disco.
 
 ### Historial
 
 | Método | Ruta | Quién | Para qué | Issue |
 |---|---|---|---|---|
-| `GET` | `/reportes/:id/historial` | Creador o `admin` | Seguimiento completo: quién hizo cada cambio, cuándo y de qué estado a cuál | #46 |
+| `GET` | `/reportes/:id/historial` | Creador u `operador` | Seguimiento completo: quién hizo cada cambio, cuándo y de qué estado a cuál | #46 |
 
-### Administración (solo `admin`)
+### Administración (solo `operador`)
 
 | Método | Ruta | Para qué | Issue |
 |---|---|---|---|
-| `PATCH` | `/reportes/:id/asignar` | El admin toma el reporte. Si otro admin ya lo tomó, responde error | #38 |
+| `PATCH` | `/reportes/:id/asignar` | El operador toma el reporte. Si otro operador ya lo tomó, responde error | #38 |
 | `PATCH` | `/reportes/:id/estado` | Avanzar al siguiente estado. Valida la transición y, para Resuelto, que exista la foto de atención | #36, #37, #38 |
-| `POST` | `/reportes/:id/acciones` | Registrar una acción correctiva (por ejemplo, "se colocó una rampa temporal") | #38 |
+| `POST` | `/reportes/:id/acciones` | Registrar una acción correctiva (por ejemplo, "se colocó una rampa temporal"). Se guarda en el historial con tipo `accion_correctiva` y no cambia el estado | #38 |
 
 Se dejan separados a propósito, en lugar de un solo `PATCH /reportes/:id` con campos opcionales: cada uno tiene permisos, validaciones e historial distintos, y así se prueban y se explican por separado.
 
@@ -260,19 +274,17 @@ Un usuario común que llame a estas rutas recibe `403`.
 
 ## Concurrencia
 
-Si dos admin intentan tomar el mismo reporte al mismo tiempo, no se usa un bloqueo. La actualización lleva la condición en el `WHERE` y la BD la ejecuta de forma atómica:
+Si dos operadores intentan tomar el mismo reporte al mismo tiempo, no se usa un bloqueo. La actualización lleva la condición en el `WHERE` y la BD la ejecuta de forma atómica:
 
 ```sql
-UPDATE reportes SET <admin asignado> = 12 WHERE id = 7 AND <admin asignado> IS NULL;
+UPDATE reportes SET id_operador = 12 WHERE id_reporte = 7 AND id_operador IS NULL;
 ```
 
-Si afecta 0 filas, otro admin llegó primero y la API responde `409`. El cambio de estado funciona igual: `... WHERE id = 7 AND estado = 'En analisis'`. Si el estado ya cambió, la API responde `409` en lugar de pisar el cambio.
+Si afecta 0 filas, otro operador llegó primero y la API responde `409 REPORTE_YA_ASIGNADO`. El cambio de estado funciona igual: `... WHERE id_reporte = 7 AND id_estado = <id del estado actual>`. Si el estado ya cambió, la API responde `409 ESTADO_DESACTUALIZADO` en lugar de pisar el cambio.
 
 ## Preguntas abiertas
 
 **Para Julián (BD):**
-1. Las acciones correctivas, ¿se guardan en el historial (sin cambio de estado) o en una tabla propia?
-2. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
-3. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
-4. Para `GET /estados`: ¿los estados van en una tabla de catálogo o como lista fija (`CHECK` o `ENUM`) en la columna de reportes?
-5. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend.
+1. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
+2. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
+3. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend.
