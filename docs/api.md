@@ -230,6 +230,7 @@ Errores, con su `codigo`:
 | `409` | `ESTADO_DESACTUALIZADO` | Alguien cambió el estado del reporte mientras se pedía el cambio. La app vuelve a consultar el reporte |
 | `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
 | `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
+| `422` | `CONTRASENA_INCORRECTA` | Al editar el perfil, la contraseña actual no coincide. Es distinto de `401` para que la app no lo confunda con una sesión vencida |
 | `422` | `REPORTE_NO_EDITABLE` | Se intenta editar, cancelar o borrar una foto de un reporte que ya no está en Reportado |
 | `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
 | `422` | `FALTA_EVIDENCIA_ATENCION` | Se pide Resuelto sin ninguna foto de tipo `atencion` |
@@ -393,7 +394,7 @@ Respuesta `200`: el `usuario` actualizado, igual que en `GET /auth/usuario`.
 
 El correo y el rol no se pueden cambiar; si la petición los trae, se ignoran.
 
-Errores: `400 VALIDACION`, `401 CREDENCIALES_INVALIDAS` (la contraseña actual no coincide). La app distingue este caso del token vencido por el `codigo`, no por el número `401`.
+Errores: `400 VALIDACION`, `422 CONTRASENA_INCORRECTA` (la contraseña actual no coincide).
 
 #### `POST /auth/logout`
 
