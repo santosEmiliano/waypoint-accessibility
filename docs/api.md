@@ -264,7 +264,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | Método | Ruta | Quién | Para qué | Issue |
 |---|---|---|---|---|
 | `POST` | `/reportes` | `usuario` | Crear un reporte con título, categoría, descripción y ubicación. Nace en Reportado | #30 |
-| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?estado=&categoria=&q=` | #30 |
+| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?idEstado=&idCategoria=&q=&cancelados=` | #30 |
 | `GET` | `/reportes/:id` | Creador u `operador` | Detalle del reporte | #30 |
 | `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el operador lo empieza a analizar ya no se puede editar | #30 |
 | `DELETE` | `/reportes/:id` | Creador, solo en Reportado | Cancelar el reporte (eliminación lógica, no se borra de la BD) | #30 |
@@ -403,6 +403,133 @@ Sin cuerpo; solo el token. Respuesta `204` sin contenido.
 A partir de ese momento el token responde `401 NO_AUTENTICADO` en cualquier ruta, aunque no haya vencido. Si el token ya no era válido, también responde `204`, para que la app pueda cerrar sesión sin importar el estado del token.
 
 Cómo se invalida el token (sesiones guardadas en la BD, lista de tokens revocados u otra forma) lo define Julián junto con el middleware de autenticación (#22).
+
+### Catálogos
+
+#### `GET /categorias`
+
+Sin cuerpo. Respuesta `200`, ordenada por id:
+
+```json
+{
+  "categorias": [
+    { "idCategoria": 1, "nombreCategoria": "Rampas y accesos" },
+    { "idCategoria": 2, "nombreCategoria": "Elevadores" }
+  ]
+}
+```
+
+#### `GET /estados`
+
+Sin cuerpo. Respuesta `200`, ordenada por `ordenEstado`:
+
+```json
+{
+  "estados": [
+    { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
+    { "idEstado": 2, "nombreEstado": "En análisis", "ordenEstado": 2 },
+    { "idEstado": 3, "nombreEstado": "En atención", "ordenEstado": 3 },
+    { "idEstado": 4, "nombreEstado": "Resuelto", "ordenEstado": 4 }
+  ]
+}
+```
+
+La app usa `ordenEstado` para pintar el avance del seguimiento y para saber cuál es el siguiente estado.
+
+### Reportes
+
+#### Cómo se ve un reporte
+
+Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, el estado, el creador y el operador asignado vienen como objetos, para que la app no tenga que pedirlos aparte:
+
+```json
+{
+  "idReporte": 7,
+  "tituloReporte": "Rampa rota en el edificio 1",
+  "descripcionReporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
+  "ubicacionReporte": "Edificio 1, entrada norte",
+  "latitudReporte": 21.913560,
+  "longitudReporte": -102.315020,
+  "canceladoReporte": false,
+  "creacionReporte": "2026-11-19T18:30:00Z",
+  "actualizacionReporte": "2026-11-19T18:30:00Z",
+  "categoria": { "idCategoria": 1, "nombreCategoria": "Rampas y accesos" },
+  "estado": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
+  "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" },
+  "operador": null
+}
+```
+
+- `latitudReporte` y `longitudReporte` son `null` si el usuario no dio permiso de ubicación.
+- `operador` es `null` mientras nadie toma el reporte; después trae `{ "idUsuario": 12, "nombreUsuario": "..." }`.
+- Del creador y del operador solo se devuelve el id y el nombre, nunca el correo.
+
+Reglas de validación de un reporte, iguales a los límites de la BD:
+
+| Campo | Regla |
+|---|---|
+| `tituloReporte` | Obligatorio, de 1 a 200 caracteres |
+| `descripcionReporte` | Obligatoria, de 1 a 2000 caracteres. La columna de la BD admite más; el límite lo pone la API para evitar textos enormes |
+| `idCategoria` | Obligatorio, una categoría que exista |
+| `ubicacionReporte` | Obligatoria, de 1 a 255 caracteres. Es la que se usa si no hay GPS |
+| `latitudReporte` | Opcional, entre -90 y 90, hasta 6 decimales |
+| `longitudReporte` | Opcional, entre -180 y 180, hasta 6 decimales |
+
+La latitud y la longitud van juntas: o vienen las dos o ninguna.
+
+#### `POST /reportes`
+
+Solo el rol `usuario`. Petición:
+
+```json
+{
+  "tituloReporte": "Rampa rota en el edificio 1",
+  "descripcionReporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
+  "idCategoria": 1,
+  "ubicacionReporte": "Edificio 1, entrada norte",
+  "latitudReporte": 21.913560,
+  "longitudReporte": -102.315020
+}
+```
+
+Respuesta `201`: `{ "reporte": { ... } }` con la forma de arriba, en estado Reportado y con `operador` en `null`. En la misma operación se escribe el historial de tipo `creacion`.
+
+Las fotos se suben después con `POST /reportes/:id/evidencias`.
+
+Errores: `400 VALIDACION`, `403 SIN_PERMISO` (un operador intenta crear un reporte).
+
+#### `GET /reportes`
+
+Sin cuerpo. Filtros opcionales en la URL, que se pueden combinar:
+
+| Parámetro | Filtra por |
+|---|---|
+| `idEstado` | Estado del reporte |
+| `idCategoria` | Categoría |
+| `q` | Texto que aparezca en el título, la descripción o la ubicación |
+| `cancelados` | Con `true` devuelve solo los reportes cancelados (por ejemplo, para una pestaña de "Cancelados"). Sin este filtro no se incluyen |
+
+Ejemplo: `GET /reportes?idEstado=2&q=rampa`
+
+Respuesta `200`, con los más recientes primero:
+
+```json
+{
+  "reportes": [
+    { "idReporte": 7, "tituloReporte": "Rampa rota en el edificio 1" }
+  ]
+}
+```
+
+Cada elemento tiene la forma completa de un reporte; en el ejemplo se recortó. Por defecto no incluye los reportes cancelados; se piden con `?cancelados=true`. El `usuario` solo recibe los suyos y el `operador` recibe todos.
+
+Errores: `400 VALIDACION` (un filtro con formato inválido).
+
+#### `GET /reportes/:id`
+
+Sin cuerpo. Respuesta `200`: `{ "reporte": { ... } }` con la forma de arriba. Si el reporte está cancelado, se devuelve igual con `canceladoReporte` en `true`.
+
+Errores: `404 NO_ENCONTRADO` (no existe, o es de otro usuario).
 
 ## Concurrencia
 
