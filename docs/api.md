@@ -117,6 +117,56 @@ Los permisos se comprueban en el backend en cada ruta. Las rutas que no son púb
 - Para pasar a Resuelto debe existir al menos una evidencia de tipo `atencion`.
 - Cada cambio de estado queda en el historial.
 
+## Errores
+
+Todas las respuestas de error tienen la misma forma, sin importar el código HTTP. Así la app maneja todos los errores en un solo lugar.
+
+```json
+{
+  "error": {
+    "codigo": "REPORTE_YA_ASIGNADO",
+    "mensaje": "Otro operador ya tomó este reporte"
+  }
+}
+```
+
+- `codigo` es fijo y en mayúsculas.
+- `mensaje` es texto para mostrar al usuario.
+
+Los errores de validación agregan `campos`, con el problema de cada campo del formulario:
+
+```json
+{
+  "error": {
+    "codigo": "VALIDACION",
+    "mensaje": "Hay campos inválidos",
+    "campos": {
+      "correoUsuario": "Formato inválido",
+      "tituloReporte": "Es obligatorio"
+    }
+  }
+}
+```
+
+La app decide puede decidir que mostrar: puede pintar cada mensaje de `campos` debajo de su campo o mostrar solo el `mensaje` general.
+
+### Reglas de seguridad
+
+- **Ningún error expone detalles** (consultas SQL, trazas, rutas de archivos, o hasta código). Si existe un fallo en el servidor responde siempre igual y el detalle se queda en los logs del servidor:
+
+  ```json
+  { "error": { "codigo": "ERROR_INTERNO", "mensaje": "Ocurrió un error en el servidor" } }
+  ```
+
+- **Lo que muestra el login** Correo inexistente y contraseña incorrecta dan la misma respuesta, sin `campos`, para no revelar qué informacion se encuentra en la base de datos:
+
+  ```json
+  { "error": { "codigo": "CREDENCIALES_INVALIDAS", "mensaje": "Correo o contraseña incorrectos" } }
+  ```
+
+- **`campos` solo describe el formato** ("Formato inválido", "Es obligatorio"), nunca el contenido de la BD ("Este correo no existe").
+- **El login limita los intentos.** Después de varios intentos fallidos seguidos, responde `429`, se usara un rate_limit.
+
 ## Endpoints
 
 ### Acceso
