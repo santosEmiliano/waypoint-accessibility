@@ -58,6 +58,11 @@ chore/<tema>     configuración y mantenimiento
 - Nadie integra su propio Pull Request sin la aprobación de su compañero.
 - Un Issue está terminado cuando funciona, su Pull Request fue aprobado e integrado, y el Issue pasó a la columna Terminado.
 
+### Convenciones
+
+- Código en español: variables, funciones, tablas y rutas (`reportes`, `crearReporte`), sin acentos en los nombres.
+- Commits y Pull Requests en español, con el formato `tipo(scope): descripción` (ej. `feat(api): Se agregó el endpoint de login`).
+
 ## Cómo ejecutar el proyecto
 
 Cada parte documenta aquí su instalación y ejecución cuando queda lista.
