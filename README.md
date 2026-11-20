@@ -121,7 +121,18 @@ npm run db:generate   # genera el cliente de Prisma (backend/src/generated/, no 
 docker compose exec mysql mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS waypoint_shadow"
 ```
 
-Los datos iniciales (roles, categorías, estados y el operador) se cargan con la semilla del issue #15.
+#### Semilla
+
+Después de `db:deploy`, la semilla carga los datos iniciales: los roles (`usuario`, `operador`), las categorías, los 4 estados con su orden y un operador de prueba.
+
+```bash
+npm run db:seed
+```
+
+- Se puede correr las veces que sea: no duplica nada.
+- El operador sale de `SEED_OPERADOR_CORREO` y `SEED_OPERADOR_CONTRASENA` del `.env` (la contraseña de mínimo 8 caracteres). Se guarda con bcrypt.
+- Si el operador ya existe, la semilla **no** le cambia la contraseña.
+- En Prisma 7 la semilla no corre sola después de migrar: hay que correrla a mano.
 
 ## Documentación técnica
 
