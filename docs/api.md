@@ -28,7 +28,6 @@ flowchart TD
         fotoReporte["POST /reportes/:id/evidencias (tipo reporte)"]
         editar["PUT /reportes/:id (solo en Reportado)"]
         cancelar["PATCH /reportes/:id/cancelar (solo en Reportado)"]
-        borrarFoto["DELETE /reportes/:id/evidencias/:evidenciaId"]
     end
 
     subgraph operador ["3. Operador atiende"]
@@ -60,7 +59,6 @@ flowchart TD
     rol -->|"usuario"| crear
     rol -->|"operador"| listar
     crear --> fotoReporte --> listar
-    fotoReporte -.-> borrarFoto
     listar -.->|"creador"| editar
     listar -.->|"creador"| cancelar
     listar -->|"operador"| detalle --> asignar --> yaAsignado
@@ -84,7 +82,7 @@ flowchart TD
     classDef exito fill:#BBF7D0,stroke:#15803D,color:#052E16
 
     class inicio,salud,registro,login,sesion,perfil,salir,catalogos,listar,bd neutro
-    class crear,fotoReporte,editar,cancelar,borrarFoto usuarioNodo
+    class crear,fotoReporte,editar,cancelar usuarioNodo
     class detalle,asignar,analisis,atencion,acciones,fotoAtencion operadorNodo
     class historial,verFotos,imagen seguimientoNodo
     class rol,yaAsignado,tieneFoto decision
@@ -211,7 +209,7 @@ Respuestas correctas:
 |---|---|
 | `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado, cancelaciones) |
 | `201` | Se creó algo nuevo (cuenta, reporte, evidencia, acción correctiva) |
-| `204` | Se completó sin nada que devolver (cerrar sesión, borrar una evidencia) |
+| `204` | Se completó sin nada que devolver (cerrar sesión) |
 
 Errores, con su `codigo`:
 
@@ -229,7 +227,7 @@ Errores, con su `codigo`:
 | `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
 | `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
 | `422` | `CONTRASENA_INCORRECTA` | Al editar el perfil, la contraseña actual no coincide. Es distinto de `401` para que la app no lo confunda con una sesión vencida |
-| `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir y borrar fotos fuera del estado permitido (ver cada endpoint) |
+| `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir fotos fuera del estado permitido (ver cada endpoint) |
 | `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
 | `422` | `FALTA_EVIDENCIA_ATENCION` | Se pide Resuelto sin ninguna foto de tipo `atencion` |
 | `429` | `DEMASIADOS_INTENTOS` | Demasiados intentos de login fallidos seguidos |
@@ -273,12 +271,13 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 |---|---|---|---|---|
 | `POST` | `/reportes/:id/evidencias` | Creador u `operador` asignado | Subir una foto. El backend decide el tipo según el rol: `reporte` si la sube el usuario, `atencion` si la sube el operador | #45 |
 | `GET` | `/reportes/:id/evidencias` | Creador u `operador` | Fotos del reporte, de los dos tipos | #45 |
-| `DELETE` | `/reportes/:id/evidencias/:evidenciaId` | Quien la subió | Quitar una foto subida por error. El creador solo mientras el reporte está en Reportado; el operador, sus fotos de `atencion` mientras no esté Resuelto. Si es la única foto de atención, el reporte ya no puede pasar a Resuelto | #45 |
 | `GET` | `/uploads/<archivo>` | Autenticado | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
 
 El reporte se crea primero (`POST /reportes`, en JSON) y las fotos se suben después, una por petición. Así un solo endpoint de subida sirve para los dos roles.
 
-El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda la app, para evitar rutas maliciosas como `../../archivo`. En la BD solo se guarda la ruta. Borrar una foto elimina el registro y la API borra el archivo del disco.
+El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda la app, para evitar rutas maliciosas como `../../archivo`. En la BD solo se guarda la ruta.
+
+Una foto subida no se puede borrar: queda como evidencia del reporte, aunque se haya subido por error. Si hace falta, se sube otra.
 
 ### Historial
 
@@ -626,14 +625,6 @@ Cada elemento tiene la forma completa de una evidencia; en el ejemplo se recort�
 
 Errores: `404 NO_ENCONTRADO` (el reporte no existe o es de otro usuario).
 
-#### `DELETE /reportes/:id/evidencias/:evidenciaId`
-
-Solo quien subió la foto, con las mismas ventanas de tiempo que para subirla: el creador mientras el reporte está en Reportado, y el operador asignado mientras no esté Resuelto. Sin cuerpo. Respuesta `204`.
-
-Se borra el registro de la BD y la API borra el archivo del disco. Si era la única foto de atención, el reporte no puede pasar a Resuelto hasta que se suba otra.
-
-Errores: `403 SIN_PERMISO` (no la subió quien la quiere borrar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
-
 #### `GET /uploads/<archivo>`
 
 Devuelve la imagen tal cual (no JSON), con su tipo (`image/jpeg` o `image/png`). Pide el token como el resto de las rutas protegidas.
@@ -760,4 +751,4 @@ Si afecta 0 filas, otro operador llegó primero y la API responde `409 REPORTE_Y
 **Para Julián (BD):**
 1. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
 2. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
-3. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend.
+3. Para `PUT /auth/usuario`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña?
