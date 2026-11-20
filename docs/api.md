@@ -47,7 +47,7 @@ flowchart TD
     subgraph seguimiento ["4. Seguimiento (creador u operador)"]
         historial["GET /reportes/:id/historial"]
         verFotos["GET /reportes/:id/evidencias"]
-        imagen["GET /uploads/archivo"]
+        imagen["GET /uploads/archivo (pública)"]
     end
 
     bd[("BD (funciones de Julián)")]
@@ -225,7 +225,7 @@ Errores, con su `codigo`:
 | `409` | `REPORTE_YA_ASIGNADO` | Otro operador tomó el reporte primero |
 | `409` | `ESTADO_DESACTUALIZADO` | Alguien cambió el estado del reporte mientras se pedía el cambio. La app vuelve a consultar el reporte |
 | `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
-| `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
+| `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen JPEG |
 | `422` | `CONTRASENA_INCORRECTA` | Al editar el perfil, la contraseña actual no coincide. Es distinto de `401` para que la app no lo confunda con una sesión vencida |
 | `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir fotos fuera del estado permitido (ver cada endpoint) |
 | `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
@@ -271,7 +271,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 |---|---|---|---|---|
 | `POST` | `/reportes/:id/evidencias` | Creador u `operador` asignado | Subir una foto. El backend decide el tipo según el rol: `reporte` si la sube el usuario, `atencion` si la sube el operador | #45 |
 | `GET` | `/reportes/:id/evidencias` | Creador u `operador` | Fotos del reporte, de los dos tipos | #45 |
-| `GET` | `/uploads/<archivo>` | Autenticado | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
+| `GET` | `/uploads/<archivo>` | Público | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
 
 El reporte se crea primero (`POST /reportes`, en JSON) y las fotos se suben después, una por petición. Así un solo endpoint de subida sirve para los dos roles.
 
@@ -593,7 +593,7 @@ Errores: `400 VALIDACION` (falta el motivo o pasa del límite), `403 SIN_PERMISO
 
 Sube una foto por petición, como `multipart/form-data` con el campo `imagen`. Reglas del archivo:
 
-- Solo JPG o PNG.
+- Solo JPEG. La app convierte la foto a JPEG antes de subirla, también las del iPhone, que se guardan en HEIC. El servidor revisa el contenido del archivo, no solo la extensión.
 - Tamaño máximo: `MAX_UPLOAD_MB` del `.env` (5 MB en el ejemplo).
 - El nombre lo genera el servidor; el nombre original se descarta.
 
@@ -627,7 +627,9 @@ Errores: `404 NO_ENCONTRADO` (el reporte no existe o es de otro usuario).
 
 #### `GET /uploads/<archivo>`
 
-Devuelve la imagen tal cual (no JSON), con su tipo (`image/jpeg` o `image/png`). Pide el token como el resto de las rutas protegidas.
+Devuelve la imagen tal cual (no JSON), con el tipo `image/jpeg`.
+
+Es pública: no pide token, para que la app la muestre igual en web, iPhone y escritorio sin mandar el token en cada imagen. Nadie llega a una foto sin su enlace, porque el nombre es un UUID generado al azar que solo aparece en `ruta_evidencia`, y esa ruta solo la reciben quienes pueden ver el reporte.
 
 Errores: `404 NO_ENCONTRADO`.
 
