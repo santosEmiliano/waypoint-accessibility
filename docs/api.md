@@ -129,7 +129,7 @@ La BD usa snake_case con sufijo (`nombre_usuario`, `descripcion_reporte`). La AP
 
 Pendiente para la reunión del issue #10: si la traducción la hacen las funciones de la BD (con un alias en el `SELECT`) o los controladores.
 
-El modelo completo está en `docs/db/` y los acuerdos entre la BD y la API en `docs/db/acuerdos-bd-api.md`.
+El modelo completo está en `database/` y los acuerdos entre la BD y la API en `database/acuerdos-bd-api.md`.
 
 Las fechas se devuelven en formato ISO 8601 (`2026-11-19T18:30:00Z`).
 
