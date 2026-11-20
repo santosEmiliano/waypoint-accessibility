@@ -263,7 +263,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?id_estado=&id_categoria=&q=&cancelados=` | #30 |
 | `GET` | `/reportes/:id` | Creador u `operador` | Detalle del reporte | #30 |
 | `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el operador lo empieza a analizar ya no se puede editar | #30 |
-| `PATCH` | `/reportes/:id/cancelar` | Creador, solo en Reportado | Cancelar el reporte con un motivo. No se borra de la BD: solo queda marcado como cancelado | #30 |
+| `PATCH` | `/reportes/:id/cancelar` | Creador, solo en Reportado | Cancelar el reporte, con una razón opcional. No se borra de la BD: solo queda marcado como cancelado | #30 |
 
 ### Evidencias
 
@@ -448,7 +448,7 @@ Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, 
   "latitud_reporte": 21.913560,
   "longitud_reporte": -102.315020,
   "cancelado_reporte": false,
-  "motivo_cancelacion_reporte": null,
+  "razon_cancelacion_reporte": null,
   "creacion_reporte": "2026-11-19T18:30:00Z",
   "actualizacion_reporte": "2026-11-19T18:30:00Z",
   "categoria": { "id_categoria": 1, "nombre_categoria": "Rampas y accesos" },
@@ -459,7 +459,7 @@ Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, 
 ```
 
 - `latitud_reporte` y `longitud_reporte` son `null` si el usuario no dio permiso de ubicación.
-- `motivo_cancelacion_reporte` es `null` mientras el reporte no está cancelado.
+- `razon_cancelacion_reporte` es `null` mientras el reporte no está cancelado, o si se canceló sin razón.
 - `operador` es `null` mientras nadie toma el reporte; después trae `{ "id_usuario": 12, "nombre_usuario": "..." }`.
 - Del creador y del operador solo se devuelve el id y el nombre, nunca el correo.
 
@@ -553,25 +553,23 @@ Errores: `400 VALIDACION`, `403 SIN_PERMISO` (un operador intenta editar), `404 
 
 #### `PATCH /reportes/:id/cancelar`
 
-Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Petición:
+Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Puede mandar una razón:
 
 ```json
 {
-  "motivo_cancelacion_reporte": "Ya lo repararon antes de que lo revisaran"
+  "razon_cancelacion_reporte": "Ya lo repararon antes de que lo revisaran"
 }
 ```
 
 | Campo | Regla |
 |---|---|
-| `motivo_cancelacion_reporte` | Obligatorio, de 1 a 2000 caracteres |
+| `razon_cancelacion_reporte` | Opcional, hasta 2000 caracteres. Sin razón se manda el cuerpo vacío (`{}`) |
 
-El nombre del campo es una propuesta: se ajusta al de la columna que agregue Julián en el ERD.
+Respuesta `200`: `{ "reporte": { ... } }` con `cancelado_reporte` en `true` y la razón, si se mandó.
 
-Respuesta `200`: `{ "reporte": { ... } }` con `cancelado_reporte` en `true` y el motivo.
+No se borra de la BD: se marca `cancelado_reporte` en `true`, se guarda la razón si viene y se escribe el historial de tipo `cancelacion`.
 
-No se borra de la BD: se marca `cancelado_reporte` en `true`, se guarda el motivo y se escribe el historial de tipo `cancelacion`.
-
-Errores: `400 VALIDACION` (falta el motivo o pasa del límite), `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
+Errores: `400 VALIDACION` (la razón pasa de 2000 caracteres), `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
 
 ### Evidencias
 
