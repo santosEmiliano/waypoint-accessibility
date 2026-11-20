@@ -27,7 +27,7 @@ flowchart TD
         crear["POST /reportes"]
         fotoReporte["POST /reportes/:id/evidencias (tipo reporte)"]
         editar["PUT /reportes/:id (solo en Reportado)"]
-        cancelar["DELETE /reportes/:id (solo en Reportado)"]
+        cancelar["PATCH /reportes/:id/cancelar (solo en Reportado)"]
         borrarFoto["DELETE /reportes/:id/evidencias/:evidenciaId"]
     end
 
@@ -209,9 +209,9 @@ Respuestas correctas:
 
 | Código | Cuándo |
 |---|---|
-| `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado) |
+| `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado, cancelaciones) |
 | `201` | Se creó algo nuevo (cuenta, reporte, evidencia, acción correctiva) |
-| `204` | Se completó sin nada que devolver (cancelar un reporte, borrar una evidencia) |
+| `204` | Se completó sin nada que devolver (cerrar sesión, borrar una evidencia) |
 
 Errores, con su `codigo`:
 
@@ -265,7 +265,7 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?id_estado=&id_categoria=&q=&cancelados=` | #30 |
 | `GET` | `/reportes/:id` | Creador u `operador` | Detalle del reporte | #30 |
 | `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el operador lo empieza a analizar ya no se puede editar | #30 |
-| `DELETE` | `/reportes/:id` | Creador, solo en Reportado | Cancelar el reporte (eliminación lógica, no se borra de la BD) | #30 |
+| `PATCH` | `/reportes/:id/cancelar` | Creador, solo en Reportado | Cancelar el reporte con un motivo. No se borra de la BD: solo queda marcado como cancelado | #30 |
 
 ### Evidencias
 
@@ -449,6 +449,7 @@ Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, 
   "latitud_reporte": 21.913560,
   "longitud_reporte": -102.315020,
   "cancelado_reporte": false,
+  "motivo_cancelacion_reporte": null,
   "creacion_reporte": "2026-11-19T18:30:00Z",
   "actualizacion_reporte": "2026-11-19T18:30:00Z",
   "categoria": { "id_categoria": 1, "nombre_categoria": "Rampas y accesos" },
@@ -459,6 +460,7 @@ Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, 
 ```
 
 - `latitud_reporte` y `longitud_reporte` son `null` si el usuario no dio permiso de ubicación.
+- `motivo_cancelacion_reporte` es `null` mientras el reporte no está cancelado.
 - `operador` es `null` mientras nadie toma el reporte; después trae `{ "id_usuario": 12, "nombre_usuario": "..." }`.
 - Del creador y del operador solo se devuelve el id y el nombre, nunca el correo.
 
@@ -550,13 +552,27 @@ La actualización lleva la condición del estado en el `WHERE`: si un operador l
 
 Errores: `400 VALIDACION`, `403 SIN_PERMISO` (un operador intenta editar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
 
-#### `DELETE /reportes/:id`
+#### `PATCH /reportes/:id/cancelar`
 
-Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Sin cuerpo. Respuesta `204`.
+Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Petición:
 
-No se borra de la BD: se marca `cancelado_reporte` en `true` y se escribe el historial de tipo `cancelacion`.
+```json
+{
+  "motivo_cancelacion_reporte": "Ya lo repararon antes de que lo revisaran"
+}
+```
 
-Errores: `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
+| Campo | Regla |
+|---|---|
+| `motivo_cancelacion_reporte` | Obligatorio, de 1 a 2000 caracteres |
+
+El nombre del campo es una propuesta: se ajusta al de la columna que agregue Julián en el ERD.
+
+Respuesta `200`: `{ "reporte": { ... } }` con `cancelado_reporte` en `true` y el motivo.
+
+No se borra de la BD: se marca `cancelado_reporte` en `true`, se guarda el motivo y se escribe el historial de tipo `cancelacion`.
+
+Errores: `400 VALIDACION` (falta el motivo o pasa del límite), `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
 
 ### Evidencias
 
