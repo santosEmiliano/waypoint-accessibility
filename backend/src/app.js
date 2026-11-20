@@ -11,4 +11,20 @@ app.get('/health', (req, res) => {
   res.json({ estado: 'ok' });
 });
 
+app.use((req, res) => {
+  res.status(404).json({ error: { codigo: 'RUTA_NO_ENCONTRADA', mensaje: 'La ruta no existe' } });
+});
+
+// Express lo reconoce como manejador de errores por tener cuatro parámetros
+app.use((error, req, res, next) => {
+  if (error.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: { codigo: 'VALIDACION', mensaje: 'El cuerpo no es un JSON válido' } });
+  }
+  if (error.type === 'entity.too.large') {
+    return res.status(400).json({ error: { codigo: 'VALIDACION', mensaje: 'El cuerpo de la petición es demasiado grande' } });
+  }
+  console.error(error);
+  res.status(500).json({ error: { codigo: 'ERROR_INTERNO', mensaje: 'Ocurrió un error en el servidor' } });
+});
+
 export default app;
