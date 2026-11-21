@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:waypoint/aplicacion.dart';
 
 void main() {
-  testWidgets('La aplicación arranca y muestra el nombre', (tester) async {
+  testWidgets('La aplicación arranca en el inicio de sesión', (tester) async {
     await tester.pumpWidget(const AplicacionWaypoint());
 
-    expect(find.text('Waypoint'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
   });
 }

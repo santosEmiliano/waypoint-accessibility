@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'pantallas/inicio_sesion.dart';
 import 'tema/tema_waypoint.dart';
 
 /// Raíz de la aplicación.
@@ -15,7 +16,7 @@ class AplicacionWaypoint extends StatelessWidget {
       darkTheme: TemaWaypoint.oscuro,
       // Sigue el modo claro u oscuro que tenga el teléfono.
       themeMode: ThemeMode.system,
-      home: const Scaffold(body: Center(child: Text('Waypoint'))),
+      home: const PantallaInicioSesion(),
     );
   }
 }
