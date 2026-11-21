@@ -1,0 +1,98 @@
+import 'package:flutter/material.dart';
+
+import '../componentes/dock_flotante.dart';
+import '../componentes/encabezado_web.dart';
+import '../rutas/destinos.dart';
+import 'administracion.dart';
+import 'formulario.dart';
+import 'listado.dart';
+import 'perfil.dart';
+import 'principal.dart';
+
+/// Desde este ancho se usa el encabezado en lugar del dock.
+const double anchoEscritorio = 840;
+
+/// Marco con la navegación de la app, el dock en el celular, encabezado en web y escritorio.
+class Armazon extends StatefulWidget {
+  const Armazon({super.key, this.rol = Rol.usuario});
+
+  final Rol rol;
+
+  @override
+  State<Armazon> createState() => _EstadoArmazon();
+}
+
+class _EstadoArmazon extends State<Armazon> {
+  // Posición de la sección que se está viendo.
+  int _indice = 0;
+
+  Widget _pagina(Seccion seccion) {
+    return switch (seccion) {
+      Seccion.inicio => const PantallaPrincipal(),
+      Seccion.reportes => const PantallaListado(),
+      Seccion.bandeja => const PantallaAdministracion(),
+      Seccion.perfil => const PantallaPerfil(),
+      // "Nuevo" no es una sección, es un formulario, por lo que aquí no se muestra.
+      Seccion.nuevo => const SizedBox.shrink(),
+    };
+  }
+
+  void _elegir(Destino destino, int indice) {
+    if (destino.esAccion) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const PantallaFormulario()));
+      return;
+    }
+    setState(() => _indice = indice);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final destinos = destinosPara(widget.rol);
+    void alElegir(int i) => _elegir(destinos[i], i);
+
+    // IndexedStack deja cada sección cargada al cambiar de una a otra.
+    final contenido = IndexedStack(
+      index: _indice,
+      children: [for (final d in destinos) _pagina(d.seccion)],
+    );
+
+    return LayoutBuilder(
+      builder: (context, medidas) {
+        if (medidas.maxWidth >= anchoEscritorio) {
+          return Scaffold(
+            body: Column(
+              children: [
+                EncabezadoWeb(
+                  destinos: destinos,
+                  indice: _indice,
+                  alElegir: alElegir,
+                ),
+                Expanded(child: contenido),
+              ],
+            ),
+          );
+        }
+
+        return Scaffold(
+          body: Stack(
+            children: [
+              contenido,
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: DockFlotante(
+                    destinos: destinos,
+                    indice: _indice,
+                    alElegir: alElegir,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
