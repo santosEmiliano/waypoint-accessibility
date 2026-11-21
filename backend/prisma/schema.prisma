@@ -1,0 +1,151 @@
+// Esquema de la BD de Waypoint (ERD v1, database/waypoint.mwb).
+// En el código los modelos van en singular y los campos en camelCase;
+// en MySQL las tablas y columnas siguen en snake_case gracias a @@map y @map.
+// Los CHECK no se pueden declarar aquí: están al final de la migración inicial.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum TipoEvidencia {
+  reporte
+  atencion
+}
+
+enum TipoHistorial {
+  creacion
+  edicion
+  asignacion
+  cambio_estado
+  accion_correctiva
+  cancelacion
+}
+
+model Rol {
+  idRol     Int    @id @default(autoincrement()) @map("id_rol") @db.UnsignedTinyInt
+  nombreRol String @unique(map: "nombre_rol_UNIQUE") @map("nombre_rol") @db.VarChar(50)
+
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  idUsuario            Int      @id @default(autoincrement()) @map("id_usuario") @db.UnsignedInt
+  nombreUsuario        String   @map("nombre_usuario") @db.VarChar(100)
+  correoUsuario        String   @unique(map: "correo_usuario_UNIQUE") @map("correo_usuario") @db.VarChar(200)
+  // Guarda el hash de bcrypt, nunca la contraseña real
+  contrasenaUsuario    String   @map("contrasena_usuario") @db.VarChar(255)
+  idRol                Int      @map("id_rol") @db.UnsignedTinyInt
+  creacionUsuario      DateTime @default(now()) @map("creacion_usuario") @db.DateTime(0)
+  actualizacionUsuario DateTime @default(now()) @updatedAt @map("actualizacion_usuario") @db.DateTime(0)
+
+  rol               Rol         @relation(fields: [idRol], references: [idRol], onDelete: Restrict, onUpdate: Cascade, map: "fk_usuarios_rol")
+  reportes          Reporte[]   @relation("ReporteUsuario")
+  reportesAsignados Reporte[]   @relation("ReporteOperador")
+  evidencias        Evidencia[]
+  historial         Historial[]
+
+  @@index([idRol], map: "fk_usuarios_rol_idx")
+  @@map("usuarios")
+}
+
+model Categoria {
+  idCategoria     Int    @id @default(autoincrement()) @map("id_categoria") @db.UnsignedTinyInt
+  nombreCategoria String @unique(map: "nombre_categoria_UNIQUE") @map("nombre_categoria") @db.VarChar(100)
+
+  reportes Reporte[]
+
+  @@map("categorias")
+}
+
+model Estado {
+  idEstado     Int    @id @default(autoincrement()) @map("id_estado") @db.UnsignedTinyInt
+  nombreEstado String @unique(map: "nombre_estado_UNIQUE") @map("nombre_estado") @db.VarChar(50)
+  // 1 = Reportado ... 4 = Resuelto. Una transición es válida si nuevo = actual + 1
+  ordenEstado  Int    @unique(map: "orden_estado_UNIQUE") @map("orden_estado") @db.UnsignedTinyInt
+
+  reportes          Reporte[]
+  historialAnterior Historial[] @relation("HistorialEstadoAnterior")
+  historialNuevo    Historial[] @relation("HistorialEstadoNuevo")
+
+  @@map("estados")
+}
+
+model Reporte {
+  idReporte               Int      @id @default(autoincrement()) @map("id_reporte") @db.UnsignedInt
+  idUsuario               Int      @map("id_usuario") @db.UnsignedInt
+  idOperador              Int?     @map("id_operador") @db.UnsignedInt
+  idCategoria             Int      @map("id_categoria") @db.UnsignedTinyInt
+  // Sin default: al crear se usa el estado con ordenEstado = 1
+  idEstado                Int      @map("id_estado") @db.UnsignedTinyInt
+  tituloReporte           String   @map("titulo_reporte") @db.VarChar(200)
+  descripcionReporte      String   @map("descripcion_reporte") @db.Text
+  latitudReporte          Decimal? @map("latitud_reporte") @db.Decimal(9, 6)
+  longitudReporte         Decimal? @map("longitud_reporte") @db.Decimal(9, 6)
+  ubicacionReporte        String   @map("ubicacion_reporte") @db.VarChar(255)
+  canceladoReporte        Boolean  @default(false) @map("cancelado_reporte")
+  razonCancelacionReporte String?  @map("razon_cancelacion_reporte") @db.Text
+  creacionReporte         DateTime @default(now()) @map("creacion_reporte") @db.DateTime(0)
+  actualizacionReporte    DateTime @default(now()) @updatedAt @map("actualizacion_reporte") @db.DateTime(0)
+
+  usuario    Usuario     @relation("ReporteUsuario", fields: [idUsuario], references: [idUsuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_reportes_usuario")
+  operador   Usuario?    @relation("ReporteOperador", fields: [idOperador], references: [idUsuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_reportes_operador")
+  categoria  Categoria   @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict, onUpdate: Cascade, map: "fk_reportes_categoria")
+  estado     Estado      @relation(fields: [idEstado], references: [idEstado], onDelete: Restrict, onUpdate: Cascade, map: "fk_reportes_estado")
+  evidencias Evidencia[]
+  historial  Historial[]
+
+  @@index([idUsuario], map: "fk_reportes_usuario_idx")
+  @@index([idOperador], map: "fk_reportes_operador_idx")
+  @@index([idCategoria], map: "fk_reportes_categoria_idx")
+  @@index([idEstado], map: "fk_reportes_estado_idx")
+  @@map("reportes")
+}
+
+model Evidencia {
+  idEvidencia       Int           @id @default(autoincrement()) @map("id_evidencia") @db.UnsignedInt
+  idReporte         Int           @map("id_reporte") @db.UnsignedInt
+  // Quien subió la foto
+  idUsuario         Int           @map("id_usuario") @db.UnsignedInt
+  tipoEvidencia     TipoEvidencia @map("tipo_evidencia")
+  // Solo la ruta del archivo en uploads/, no la imagen
+  rutaEvidencia     String        @unique(map: "ruta_evidencia_UNIQUE") @map("ruta_evidencia") @db.VarChar(500)
+  creacionEvidencia DateTime      @default(now()) @map("creacion_evidencia") @db.DateTime(0)
+
+  reporte Reporte @relation(fields: [idReporte], references: [idReporte], onDelete: Restrict, onUpdate: Cascade, map: "fk_evidencias_reporte")
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_evidencias_usuario")
+
+  @@index([idReporte], map: "fk_evidencias_reporte_idx")
+  @@index([idUsuario], map: "fk_evidencias_usuario_idx")
+  @@map("evidencias")
+}
+
+// Solo inserción: el historial nunca se modifica ni se borra
+model Historial {
+  idHistorial          Int           @id @default(autoincrement()) @map("id_historial") @db.UnsignedInt
+  idReporte            Int           @map("id_reporte") @db.UnsignedInt
+  // Quien hizo el movimiento
+  idUsuario            Int           @map("id_usuario") @db.UnsignedInt
+  tipoHistorial        TipoHistorial @map("tipo_historial")
+  idEstadoAnterior     Int?          @map("id_estado_anterior") @db.UnsignedTinyInt
+  idEstadoNuevo        Int?          @map("id_estado_nuevo") @db.UnsignedTinyInt
+  descripcionHistorial String?       @map("descripcion_historial") @db.Text
+  creacionHistorial    DateTime      @default(now()) @map("creacion_historial") @db.DateTime(0)
+
+  reporte        Reporte @relation(fields: [idReporte], references: [idReporte], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_reporte")
+  usuario        Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_usuario")
+  estadoAnterior Estado? @relation("HistorialEstadoAnterior", fields: [idEstadoAnterior], references: [idEstado], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_estado_anterior")
+  estadoNuevo    Estado? @relation("HistorialEstadoNuevo", fields: [idEstadoNuevo], references: [idEstado], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_estado_nuevo")
+
+  @@index([idReporte], map: "fk_historial_reporte_idx")
+  @@index([idUsuario], map: "fk_historial_usuario_idx")
+  @@index([idEstadoAnterior], map: "fk_historial_estado_anterior_idx")
+  @@index([idEstadoNuevo], map: "fk_historial_estado_nuevo_idx")
+  @@map("historial")
+}
