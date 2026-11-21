@@ -68,7 +68,7 @@ chore/<tema>     configuración y mantenimiento
 Cada parte documenta aquí su instalación y ejecución cuando queda lista.
 
 - **Base de datos:** ver [Base de datos](#base-de-datos).
-- **Backend:** pendiente (Harim).
+- **Backend:** ver [Backend](#backend).
 - **Frontend:** pendiente (Santos).
 
 Variables de entorno: copiar `.env.example` a `.env` y completar los valores.
@@ -122,6 +122,50 @@ docker compose exec mysql mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS wayp
 ```
 
 Los datos iniciales (roles, categorías, estados y el operador) se cargan con la semilla del issue #15.
+
+### Backend
+
+Requiere Node.js 22.12 o superior.
+
+1. Copiar las variables de entorno en la raíz del repositorio. El backend lee el `.env` de la raíz, no de `backend/`, y sin ese archivo no arranca.
+
+   ```
+   cp .env.example .env
+   ```
+
+2. Instalar las dependencias desde `backend/`.
+
+   ```
+   cd backend
+   ```
+
+   ```
+   npm install
+   ```
+
+3. Levantar el servidor. Se reinicia solo al guardar cambios.
+
+   ```
+   npm run dev
+   ```
+
+   Para comprobar que está activo, abrir `http://localhost:3000/health`, que responde `{"estado":"ok"}`.
+
+4. Correr las pruebas automáticas. No necesitan el servidor levantado.
+
+   ```
+   npm test
+   ```
+
+**Pruebas en Postman:** importar `docs/postman/waypoint-api.postman_collection.json` con **Import**. Las peticiones apuntan a `http://localhost:3000`, así que el servidor debe estar levantado.
+
+**Versión web de Flutter:** el backend solo acepta peticiones del navegador desde los orígenes de `CORS_ORIGIN` (por defecto `http://localhost:8080`). Hay que levantar la versión web en ese puerto; si Flutter elige un puerto al azar, el navegador bloquea las respuestas.
+
+```
+flutter run -d chrome --web-port=8080
+```
+
+**Errores 500:** la API solo responde `Ocurrió un error en el servidor`, sin detalles. El error completo aparece en la consola donde corre el backend.
 
 ## Documentación técnica
 

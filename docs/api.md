@@ -27,8 +27,7 @@ flowchart TD
         crear["POST /reportes"]
         fotoReporte["POST /reportes/:id/evidencias (tipo reporte)"]
         editar["PUT /reportes/:id (solo en Reportado)"]
-        cancelar["DELETE /reportes/:id (solo en Reportado)"]
-        borrarFoto["DELETE /reportes/:id/evidencias/:evidenciaId"]
+        cancelar["PATCH /reportes/:id/cancelar (solo en Reportado)"]
     end
 
     subgraph operador ["3. Operador atiende"]
@@ -48,7 +47,7 @@ flowchart TD
     subgraph seguimiento ["4. Seguimiento (creador u operador)"]
         historial["GET /reportes/:id/historial"]
         verFotos["GET /reportes/:id/evidencias"]
-        imagen["GET /uploads/archivo"]
+        imagen["GET /uploads/archivo (pública)"]
     end
 
     bd[("BD (funciones de Julián)")]
@@ -60,7 +59,6 @@ flowchart TD
     rol -->|"usuario"| crear
     rol -->|"operador"| listar
     crear --> fotoReporte --> listar
-    fotoReporte -.-> borrarFoto
     listar -.->|"creador"| editar
     listar -.->|"creador"| cancelar
     listar -->|"operador"| detalle --> asignar --> yaAsignado
@@ -84,7 +82,7 @@ flowchart TD
     classDef exito fill:#BBF7D0,stroke:#15803D,color:#052E16
 
     class inicio,salud,registro,login,sesion,perfil,salir,catalogos,listar,bd neutro
-    class crear,fotoReporte,editar,cancelar,borrarFoto usuarioNodo
+    class crear,fotoReporte,editar,cancelar usuarioNodo
     class detalle,asignar,analisis,atencion,acciones,fotoAtencion operadorNodo
     class historial,verFotos,imagen seguimientoNodo
     class rol,yaAsignado,tieneFoto decision
@@ -123,13 +121,11 @@ Los permisos se comprueban en el backend en cada ruta. Las rutas que no son púb
 
 ## Nombres de los campos
 
-La BD usa snake_case con sufijo (`nombre_usuario`, `descripcion_reporte`). La API responde en camelCase con el mismo sufijo (`nombreUsuario`, `descripcionReporte`), que es la convención de JavaScript y de Dart. Los ids siguen la misma regla: `id_reporte` se vuelve `idReporte`.
+El JSON usa los mismos nombres que las columnas de la BD: snake_case con sufijo (`nombre_usuario`, `descripcion_reporte`, `id_reporte`). Así la API no traduce nombres y lo que devuelve la BD es lo que recibe la app.
 
-`contrasenaUsuario` nunca aparece en una respuesta.
+`contrasena_usuario` nunca aparece en una respuesta.
 
-Pendiente para la reunión del issue #10: si la traducción la hacen las funciones de la BD (con un alias en el `SELECT`) o los controladores.
-
-El modelo completo está en `docs/db/` y los acuerdos entre la BD y la API en `docs/db/acuerdos-bd-api.md`.
+El modelo completo está en `database/` y los acuerdos entre la BD y la API en `database/acuerdos-bd-api.md`.
 
 Las fechas se devuelven en formato ISO 8601 (`2026-11-19T18:30:00Z`).
 
@@ -151,9 +147,9 @@ Reglas de validación de los datos de la cuenta, iguales a los límites de la BD
 
 | Campo | Regla |
 |---|---|
-| `nombreUsuario` | Obligatorio, de 1 a 100 caracteres |
-| `correoUsuario` | Obligatorio, formato de correo, hasta 200 caracteres |
-| `contrasenaUsuario` | Obligatoria, mínimo 8 caracteres |
+| `nombre_usuario` | Obligatorio, de 1 a 100 caracteres |
+| `correo_usuario` | Obligatorio, formato de correo, hasta 200 caracteres |
+| `contrasena_usuario` | Obligatoria, mínimo 8 caracteres |
 
 ## Errores
 
@@ -179,8 +175,8 @@ Los errores de validación agregan `campos`, con el problema de cada campo del f
     "codigo": "VALIDACION",
     "mensaje": "Hay campos inválidos",
     "campos": {
-      "correoUsuario": "Formato inválido",
-      "tituloReporte": "Es obligatorio"
+      "correo_usuario": "Formato inválido",
+      "titulo_reporte": "Es obligatorio"
     }
   }
 }
@@ -211,9 +207,9 @@ Respuestas correctas:
 
 | Código | Cuándo |
 |---|---|
-| `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado) |
+| `200` | La petición salió bien y devuelve datos (consultas, ediciones, cambios de estado, cancelaciones) |
 | `201` | Se creó algo nuevo (cuenta, reporte, evidencia, acción correctiva) |
-| `204` | Se completó sin nada que devolver (cancelar un reporte, borrar una evidencia) |
+| `204` | Se completó sin nada que devolver (cerrar sesión) |
 
 Errores, con su `codigo`:
 
@@ -229,9 +225,9 @@ Errores, con su `codigo`:
 | `409` | `REPORTE_YA_ASIGNADO` | Otro operador tomó el reporte primero |
 | `409` | `ESTADO_DESACTUALIZADO` | Alguien cambió el estado del reporte mientras se pedía el cambio. La app vuelve a consultar el reporte |
 | `413` | `ARCHIVO_DEMASIADO_GRANDE` | La foto pasa del tamaño máximo (`MAX_UPLOAD_MB`) |
-| `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen permitida (JPG o PNG) |
+| `415` | `TIPO_ARCHIVO_INVALIDO` | El archivo no es una imagen JPEG |
 | `422` | `CONTRASENA_INCORRECTA` | Al editar el perfil, la contraseña actual no coincide. Es distinto de `401` para que la app no lo confunda con una sesión vencida |
-| `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir y borrar fotos fuera del estado permitido (ver cada endpoint) |
+| `422` | `REPORTE_NO_EDITABLE` | El reporte ya no admite ese cambio: editarlo, cancelarlo o subir fotos fuera del estado permitido (ver cada endpoint) |
 | `422` | `TRANSICION_INVALIDA` | El cambio de estado se salta un paso, retrocede o el reporte ya está Resuelto |
 | `422` | `FALTA_EVIDENCIA_ATENCION` | Se pide Resuelto sin ninguna foto de tipo `atencion` |
 | `429` | `DEMASIADOS_INTENTOS` | Demasiados intentos de login fallidos seguidos |
@@ -264,10 +260,10 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 | Método | Ruta | Quién | Para qué | Issue |
 |---|---|---|---|---|
 | `POST` | `/reportes` | `usuario` | Crear un reporte con título, categoría, descripción y ubicación. Nace en Reportado | #30 |
-| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?idEstado=&idCategoria=&q=&cancelados=` | #30 |
+| `GET` | `/reportes` | Autenticado | Un solo endpoint: el `usuario` recibe solo los suyos y el `operador` recibe todos. Filtros opcionales: `?id_estado=&id_categoria=&q=&cancelados=` | #30 |
 | `GET` | `/reportes/:id` | Creador u `operador` | Detalle del reporte | #30 |
 | `PUT` | `/reportes/:id` | Creador, solo en Reportado | Modificar el reporte. Cuando el operador lo empieza a analizar ya no se puede editar | #30 |
-| `DELETE` | `/reportes/:id` | Creador, solo en Reportado | Cancelar el reporte (eliminación lógica, no se borra de la BD) | #30 |
+| `PATCH` | `/reportes/:id/cancelar` | Creador, solo en Reportado | Cancelar el reporte, con una razón opcional. No se borra de la BD: solo queda marcado como cancelado | #30 |
 
 ### Evidencias
 
@@ -275,12 +271,13 @@ La diferencia entre `409` y `422`: el `409` es un choque con otra persona o con 
 |---|---|---|---|---|
 | `POST` | `/reportes/:id/evidencias` | Creador u `operador` asignado | Subir una foto. El backend decide el tipo según el rol: `reporte` si la sube el usuario, `atencion` si la sube el operador | #45 |
 | `GET` | `/reportes/:id/evidencias` | Creador u `operador` | Fotos del reporte, de los dos tipos | #45 |
-| `DELETE` | `/reportes/:id/evidencias/:evidenciaId` | Quien la subió | Quitar una foto subida por error. El creador solo mientras el reporte está en Reportado; el operador, sus fotos de `atencion` mientras no esté Resuelto. Si es la única foto de atención, el reporte ya no puede pasar a Resuelto | #45 |
-| `GET` | `/uploads/<archivo>` | Autenticado | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
+| `GET` | `/uploads/<archivo>` | Público | Mostrar la imagen en la app. No es un controlador: es la carpeta de imágenes servida por el servidor | #45 |
 
 El reporte se crea primero (`POST /reportes`, en JSON) y las fotos se suben después, una por petición. Así un solo endpoint de subida sirve para los dos roles.
 
-El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda la app, para evitar rutas maliciosas como `../../archivo`. En la BD solo se guarda la ruta. Borrar una foto elimina el registro y la API borra el archivo del disco.
+El nombre del archivo lo genera el servidor (un UUID), nunca se usa el que manda la app, para evitar rutas maliciosas como `../../archivo`. En la BD solo se guarda la ruta.
+
+Una foto subida no se puede borrar: queda como evidencia del reporte, aunque se haya subido por error. Si hace falta, se sube otra.
 
 ### Historial
 
@@ -320,9 +317,9 @@ Petición:
 
 ```json
 {
-  "nombreUsuario": "Ana López",
-  "correoUsuario": "ana@ejemplo.com",
-  "contrasenaUsuario": "una-contraseña-segura"
+  "nombre_usuario": "Ana López",
+  "correo_usuario": "ana@ejemplo.com",
+  "contrasena_usuario": "una-contraseña-segura"
 }
 ```
 
@@ -332,11 +329,11 @@ Respuesta `201`. Devuelve el token para que la app entre sin pedir el login otra
 {
   "token": "<token>",
   "usuario": {
-    "idUsuario": 5,
-    "nombreUsuario": "Ana López",
-    "correoUsuario": "ana@ejemplo.com",
-    "nombreRol": "usuario",
-    "creacionUsuario": "2026-11-19T18:30:00Z"
+    "id_usuario": 5,
+    "nombre_usuario": "Ana López",
+    "correo_usuario": "ana@ejemplo.com",
+    "nombre_rol": "usuario",
+    "creacion_usuario": "2026-11-19T18:30:00Z"
   }
 }
 ```
@@ -351,8 +348,8 @@ Petición:
 
 ```json
 {
-  "correoUsuario": "ana@ejemplo.com",
-  "contrasenaUsuario": "una-contraseña-segura"
+  "correo_usuario": "ana@ejemplo.com",
+  "contrasena_usuario": "una-contraseña-segura"
 }
 ```
 
@@ -367,16 +364,16 @@ Sin cuerpo; solo el token. Respuesta `200`:
 ```json
 {
   "usuario": {
-    "idUsuario": 5,
-    "nombreUsuario": "Ana López",
-    "correoUsuario": "ana@ejemplo.com",
-    "nombreRol": "usuario",
-    "creacionUsuario": "2026-11-19T18:30:00Z"
+    "id_usuario": 5,
+    "nombre_usuario": "Ana López",
+    "correo_usuario": "ana@ejemplo.com",
+    "nombre_rol": "usuario",
+    "creacion_usuario": "2026-11-19T18:30:00Z"
   }
 }
 ```
 
-La app usa `nombreRol` para decidir qué pantallas mostrar.
+La app usa `nombre_rol` para decidir qué pantallas mostrar.
 
 #### `PUT /auth/usuario`
 
@@ -384,9 +381,9 @@ Petición con al menos uno de los cambios. Para cambiar la contraseña se manda 
 
 ```json
 {
-  "nombreUsuario": "Ana María López",
-  "contrasenaActual": "una-contraseña-segura",
-  "contrasenaNueva": "otra-contraseña-segura"
+  "nombre_usuario": "Ana María López",
+  "contrasena_actual": "una-contraseña-segura",
+  "contrasena_nueva": "otra-contraseña-segura"
 }
 ```
 
@@ -413,28 +410,28 @@ Sin cuerpo. Respuesta `200`, ordenada por id:
 ```json
 {
   "categorias": [
-    { "idCategoria": 1, "nombreCategoria": "Rampas y accesos" },
-    { "idCategoria": 2, "nombreCategoria": "Elevadores" }
+    { "id_categoria": 1, "nombre_categoria": "Rampas y accesos" },
+    { "id_categoria": 2, "nombre_categoria": "Elevadores" }
   ]
 }
 ```
 
 #### `GET /estados`
 
-Sin cuerpo. Respuesta `200`, ordenada por `ordenEstado`:
+Sin cuerpo. Respuesta `200`, ordenada por `orden_estado`:
 
 ```json
 {
   "estados": [
-    { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
-    { "idEstado": 2, "nombreEstado": "En análisis", "ordenEstado": 2 },
-    { "idEstado": 3, "nombreEstado": "En atención", "ordenEstado": 3 },
-    { "idEstado": 4, "nombreEstado": "Resuelto", "ordenEstado": 4 }
+    { "id_estado": 1, "nombre_estado": "Reportado", "orden_estado": 1 },
+    { "id_estado": 2, "nombre_estado": "En análisis", "orden_estado": 2 },
+    { "id_estado": 3, "nombre_estado": "En atención", "orden_estado": 3 },
+    { "id_estado": 4, "nombre_estado": "Resuelto", "orden_estado": 4 }
   ]
 }
 ```
 
-La app usa `ordenEstado` para pintar el avance del seguimiento y para saber cuál es el siguiente estado.
+La app usa `orden_estado` para pintar el avance del seguimiento y para saber cuál es el siguiente estado.
 
 ### Reportes
 
@@ -444,36 +441,38 @@ Todas las rutas de reportes devuelven el reporte con esta forma. La categoría, 
 
 ```json
 {
-  "idReporte": 7,
-  "tituloReporte": "Rampa rota en el edificio 1",
-  "descripcionReporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
-  "ubicacionReporte": "Edificio 1, entrada norte",
-  "latitudReporte": 21.913560,
-  "longitudReporte": -102.315020,
-  "canceladoReporte": false,
-  "creacionReporte": "2026-11-19T18:30:00Z",
-  "actualizacionReporte": "2026-11-19T18:30:00Z",
-  "categoria": { "idCategoria": 1, "nombreCategoria": "Rampas y accesos" },
-  "estado": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
-  "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" },
+  "id_reporte": 7,
+  "titulo_reporte": "Rampa rota en el edificio 1",
+  "descripcion_reporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
+  "ubicacion_reporte": "Edificio 1, entrada norte",
+  "latitud_reporte": 21.913560,
+  "longitud_reporte": -102.315020,
+  "cancelado_reporte": false,
+  "razon_cancelacion_reporte": null,
+  "creacion_reporte": "2026-11-19T18:30:00Z",
+  "actualizacion_reporte": "2026-11-19T18:30:00Z",
+  "categoria": { "id_categoria": 1, "nombre_categoria": "Rampas y accesos" },
+  "estado": { "id_estado": 1, "nombre_estado": "Reportado", "orden_estado": 1 },
+  "usuario": { "id_usuario": 5, "nombre_usuario": "Ana López" },
   "operador": null
 }
 ```
 
-- `latitudReporte` y `longitudReporte` son `null` si el usuario no dio permiso de ubicación.
-- `operador` es `null` mientras nadie toma el reporte; después trae `{ "idUsuario": 12, "nombreUsuario": "..." }`.
+- `latitud_reporte` y `longitud_reporte` son `null` si el usuario no dio permiso de ubicación.
+- `razon_cancelacion_reporte` es `null` mientras el reporte no está cancelado, o si se canceló sin razón.
+- `operador` es `null` mientras nadie toma el reporte; después trae `{ "id_usuario": 12, "nombre_usuario": "..." }`.
 - Del creador y del operador solo se devuelve el id y el nombre, nunca el correo.
 
 Reglas de validación de un reporte, iguales a los límites de la BD:
 
 | Campo | Regla |
 |---|---|
-| `tituloReporte` | Obligatorio, de 1 a 200 caracteres |
-| `descripcionReporte` | Obligatoria, de 1 a 2000 caracteres. La columna de la BD admite más; el límite lo pone la API para evitar textos enormes |
-| `idCategoria` | Obligatorio, una categoría que exista |
-| `ubicacionReporte` | Obligatoria, de 1 a 255 caracteres. Es la que se usa si no hay GPS |
-| `latitudReporte` | Opcional, entre -90 y 90, hasta 6 decimales |
-| `longitudReporte` | Opcional, entre -180 y 180, hasta 6 decimales |
+| `titulo_reporte` | Obligatorio, de 1 a 200 caracteres |
+| `descripcion_reporte` | Obligatoria, de 1 a 2000 caracteres. La columna de la BD admite más; el límite lo pone la API para evitar textos enormes |
+| `id_categoria` | Obligatorio, una categoría que exista |
+| `ubicacion_reporte` | Obligatoria, de 1 a 255 caracteres. Es la que se usa si no hay GPS |
+| `latitud_reporte` | Opcional, entre -90 y 90, hasta 6 decimales |
+| `longitud_reporte` | Opcional, entre -180 y 180, hasta 6 decimales |
 
 La latitud y la longitud van juntas: o vienen las dos o ninguna.
 
@@ -483,12 +482,12 @@ Solo el rol `usuario`. Petición:
 
 ```json
 {
-  "tituloReporte": "Rampa rota en el edificio 1",
-  "descripcionReporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
-  "idCategoria": 1,
-  "ubicacionReporte": "Edificio 1, entrada norte",
-  "latitudReporte": 21.913560,
-  "longitudReporte": -102.315020
+  "titulo_reporte": "Rampa rota en el edificio 1",
+  "descripcion_reporte": "La rampa de la entrada norte tiene una grieta y una parte hundida.",
+  "id_categoria": 1,
+  "ubicacion_reporte": "Edificio 1, entrada norte",
+  "latitud_reporte": 21.913560,
+  "longitud_reporte": -102.315020
 }
 ```
 
@@ -504,19 +503,19 @@ Sin cuerpo. Filtros opcionales en la URL, que se pueden combinar:
 
 | Parámetro | Filtra por |
 |---|---|
-| `idEstado` | Estado del reporte |
-| `idCategoria` | Categoría |
+| `id_estado` | Estado del reporte |
+| `id_categoria` | Categoría |
 | `q` | Texto que aparezca en el título, la descripción o la ubicación |
 | `cancelados` | Con `true` devuelve solo los reportes cancelados (por ejemplo, para una pestaña de "Cancelados"). Sin este filtro no se incluyen |
 
-Ejemplo: `GET /reportes?idEstado=2&q=rampa`
+Ejemplo: `GET /reportes?id_estado=2&q=rampa`
 
 Respuesta `200`, con los más recientes primero:
 
 ```json
 {
   "reportes": [
-    { "idReporte": 7, "tituloReporte": "Rampa rota en el edificio 1" }
+    { "id_reporte": 7, "titulo_reporte": "Rampa rota en el edificio 1" }
   ]
 }
 ```
@@ -527,7 +526,7 @@ Errores: `400 VALIDACION` (un filtro con formato inválido).
 
 #### `GET /reportes/:id`
 
-Sin cuerpo. Respuesta `200`: `{ "reporte": { ... } }` con la forma de arriba. Si el reporte está cancelado, se devuelve igual con `canceladoReporte` en `true`.
+Sin cuerpo. Respuesta `200`: `{ "reporte": { ... } }` con la forma de arriba. Si el reporte está cancelado, se devuelve igual con `cancelado_reporte` en `true`.
 
 Errores: `404 NO_ENCONTRADO` (no existe, o es de otro usuario).
 
@@ -537,12 +536,12 @@ Solo el creador, y solo mientras el reporte está en Reportado y no está cancel
 
 ```json
 {
-  "tituloReporte": "Rampa rota en el edificio 1",
-  "descripcionReporte": "La grieta ya llega a la orilla de la rampa.",
-  "idCategoria": 1,
-  "ubicacionReporte": "Edificio 1, entrada norte",
-  "latitudReporte": 21.913560,
-  "longitudReporte": -102.315020
+  "titulo_reporte": "Rampa rota en el edificio 1",
+  "descripcion_reporte": "La grieta ya llega a la orilla de la rampa.",
+  "id_categoria": 1,
+  "ubicacion_reporte": "Edificio 1, entrada norte",
+  "latitud_reporte": 21.913560,
+  "longitud_reporte": -102.315020
 }
 ```
 
@@ -552,13 +551,25 @@ La actualización lleva la condición del estado en el `WHERE`: si un operador l
 
 Errores: `400 VALIDACION`, `403 SIN_PERMISO` (un operador intenta editar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
 
-#### `DELETE /reportes/:id`
+#### `PATCH /reportes/:id/cancelar`
 
-Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Sin cuerpo. Respuesta `204`.
+Cancela el reporte. Solo el creador, y solo mientras está en Reportado. Puede mandar una razón:
 
-No se borra de la BD: se marca `canceladoReporte` en `true` y se escribe el historial de tipo `cancelacion`.
+```json
+{
+  "razon_cancelacion_reporte": "Ya lo repararon antes de que lo revisaran"
+}
+```
 
-Errores: `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
+| Campo | Regla |
+|---|---|
+| `razon_cancelacion_reporte` | Opcional, hasta 2000 caracteres. Sin razón se manda el cuerpo vacío (`{}`) |
+
+Respuesta `200`: `{ "reporte": { ... } }` con `cancelado_reporte` en `true` y la razón, si se mandó.
+
+No se borra de la BD: se marca `cancelado_reporte` en `true`, se guarda la razón si viene y se escribe el historial de tipo `cancelacion`.
+
+Errores: `400 VALIDACION` (la razón pasa de 2000 caracteres), `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE` (ya no está en Reportado o ya estaba cancelado).
 
 ### Evidencias
 
@@ -566,21 +577,21 @@ Errores: `403 SIN_PERMISO` (un operador intenta cancelar), `404 NO_ENCONTRADO`, 
 
 ```json
 {
-  "idEvidencia": 31,
-  "tipoEvidencia": "reporte",
-  "rutaEvidencia": "/uploads/3f2b8c1e-9a4d-4e7b-b1c2-5d6e7f8a9b0c.jpg",
-  "creacionEvidencia": "2026-11-19T18:32:00Z",
-  "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" }
+  "id_evidencia": 31,
+  "tipo_evidencia": "reporte",
+  "ruta_evidencia": "/uploads/3f2b8c1e-9a4d-4e7b-b1c2-5d6e7f8a9b0c.jpg",
+  "creacion_evidencia": "2026-11-19T18:32:00Z",
+  "usuario": { "id_usuario": 5, "nombre_usuario": "Ana López" }
 }
 ```
 
-`rutaEvidencia` es la dirección para mostrar la imagen con `GET /uploads/<archivo>`. `usuario` es quien subió la foto.
+`ruta_evidencia` es la dirección para mostrar la imagen con `GET /uploads/<archivo>`. `usuario` es quien subió la foto.
 
 #### `POST /reportes/:id/evidencias`
 
 Sube una foto por petición, como `multipart/form-data` con el campo `imagen`. Reglas del archivo:
 
-- Solo JPG o PNG.
+- Solo JPEG. La app convierte la foto a JPEG antes de subirla, también las del iPhone, que se guardan en HEIC. El servidor revisa el contenido del archivo, no solo la extensión.
 - Tamaño máximo: `MAX_UPLOAD_MB` del `.env` (5 MB en el ejemplo).
 - El nombre lo genera el servidor; el nombre original se descarta.
 
@@ -602,8 +613,8 @@ Sin cuerpo. Respuesta `200`, con las fotos de los dos tipos de la más antigua a
 ```json
 {
   "evidencias": [
-    { "idEvidencia": 31, "tipoEvidencia": "reporte" },
-    { "idEvidencia": 40, "tipoEvidencia": "atencion" }
+    { "id_evidencia": 31, "tipo_evidencia": "reporte" },
+    { "id_evidencia": 40, "tipo_evidencia": "atencion" }
   ]
 }
 ```
@@ -612,17 +623,11 @@ Cada elemento tiene la forma completa de una evidencia; en el ejemplo se recort�
 
 Errores: `404 NO_ENCONTRADO` (el reporte no existe o es de otro usuario).
 
-#### `DELETE /reportes/:id/evidencias/:evidenciaId`
-
-Solo quien subió la foto, con las mismas ventanas de tiempo que para subirla: el creador mientras el reporte está en Reportado, y el operador asignado mientras no esté Resuelto. Sin cuerpo. Respuesta `204`.
-
-Se borra el registro de la BD y la API borra el archivo del disco. Si era la única foto de atención, el reporte no puede pasar a Resuelto hasta que se suba otra.
-
-Errores: `403 SIN_PERMISO` (no la subió quien la quiere borrar), `404 NO_ENCONTRADO`, `422 REPORTE_NO_EDITABLE`.
-
 #### `GET /uploads/<archivo>`
 
-Devuelve la imagen tal cual (no JSON), con su tipo (`image/jpeg` o `image/png`). Pide el token como el resto de las rutas protegidas.
+Devuelve la imagen tal cual (no JSON), con el tipo `image/jpeg`.
+
+Es pública: no pide token, para que la app la muestre igual en web, iPhone y escritorio sin mandar el token en cada imagen. Nadie llega a una foto sin su enlace, porque el nombre es un UUID generado al azar que solo aparece en `ruta_evidencia`, y esa ruta solo la reciben quienes pueden ver el reporte.
 
 Errores: `404 NO_ENCONTRADO`.
 
@@ -636,22 +641,22 @@ Sin cuerpo. Solo el creador o un operador. Respuesta `200`, de lo más antiguo a
 {
   "historial": [
     {
-      "idHistorial": 101,
-      "tipoHistorial": "creacion",
-      "estadoAnterior": null,
-      "estadoNuevo": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
-      "descripcionHistorial": null,
-      "creacionHistorial": "2026-11-19T18:30:00Z",
-      "usuario": { "idUsuario": 5, "nombreUsuario": "Ana López" }
+      "id_historial": 101,
+      "tipo_historial": "creacion",
+      "estado_anterior": null,
+      "estado_nuevo": { "id_estado": 1, "nombre_estado": "Reportado", "orden_estado": 1 },
+      "descripcion_historial": null,
+      "creacion_historial": "2026-11-19T18:30:00Z",
+      "usuario": { "id_usuario": 5, "nombre_usuario": "Ana López" }
     },
     {
-      "idHistorial": 108,
-      "tipoHistorial": "cambio_estado",
-      "estadoAnterior": { "idEstado": 1, "nombreEstado": "Reportado", "ordenEstado": 1 },
-      "estadoNuevo": { "idEstado": 2, "nombreEstado": "En análisis", "ordenEstado": 2 },
-      "descripcionHistorial": "Se revisó en sitio",
-      "creacionHistorial": "2026-11-20T09:15:00Z",
-      "usuario": { "idUsuario": 12, "nombreUsuario": "Operador de prueba" }
+      "id_historial": 108,
+      "tipo_historial": "cambio_estado",
+      "estado_anterior": { "id_estado": 1, "nombre_estado": "Reportado", "orden_estado": 1 },
+      "estado_nuevo": { "id_estado": 2, "nombre_estado": "En análisis", "orden_estado": 2 },
+      "descripcion_historial": "Se revisó en sitio",
+      "creacion_historial": "2026-11-20T09:15:00Z",
+      "usuario": { "id_usuario": 12, "nombre_usuario": "Operador de prueba" }
     }
   ]
 }
@@ -659,9 +664,9 @@ Sin cuerpo. Solo el creador o un operador. Respuesta `200`, de lo más antiguo a
 
 `usuario` es quien hizo el movimiento. Qué trae cada tipo:
 
-| `tipoHistorial` | `estadoAnterior` y `estadoNuevo` | `descripcionHistorial` |
+| `tipo_historial` | `estado_anterior` y `estado_nuevo` | `descripcion_historial` |
 |---|---|---|
-| `creacion` | Solo `estadoNuevo` (Reportado) | `null` |
+| `creacion` | Solo `estado_nuevo` (Reportado) | `null` |
 | `edicion` | `null` | `null` |
 | `asignacion` | `null` | `null` |
 | `cambio_estado` | Los dos | El comentario del operador, si lo mandó |
@@ -690,15 +695,15 @@ Solo el operador asignado al reporte. La app manda el estado al que quiere pasar
 
 ```json
 {
-  "idEstado": 2,
-  "descripcionHistorial": "Se revisó en sitio"
+  "id_estado": 2,
+  "descripcion_historial": "Se revisó en sitio"
 }
 ```
 
 | Campo | Regla |
 |---|---|
-| `idEstado` | Obligatorio, un estado que exista |
-| `descripcionHistorial` | Opcional, hasta 2000 caracteres |
+| `id_estado` | Obligatorio, un estado que exista |
+| `descripcion_historial` | Opcional, hasta 2000 caracteres |
 
 La API compara el estado que manda la app con el actual:
 
@@ -721,11 +726,11 @@ Solo el operador asignado, mientras el reporte está en En análisis o En atenci
 
 ```json
 {
-  "descripcionHistorial": "Se colocó una rampa temporal mientras llega la reparación."
+  "descripcion_historial": "Se colocó una rampa temporal mientras llega la reparación."
 }
 ```
 
-`descripcionHistorial` es obligatoria, de 1 a 2000 caracteres.
+`descripcion_historial` es obligatoria, de 1 a 2000 caracteres.
 
 Respuesta `201`: `{ "historial": { ... } }` con el renglón creado, de tipo `accion_correctiva`, con la forma de `GET /reportes/:id/historial`. No cambia el estado.
 
@@ -746,4 +751,4 @@ Si afecta 0 filas, otro operador llegó primero y la API responde `409 REPORTE_Y
 **Para Julián (BD):**
 1. Para `GET /reportes` con un solo endpoint, ¿tu función de listar puede recibir el id del usuario como filtro opcional?
 2. Para la concurrencia, ¿tus funciones de asignar y de cambiar estado pueden devolver cuántas filas se actualizaron?
-3. Para `PUT /auth/usuario` y `DELETE /reportes/:id/evidencias/:evidenciaId`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña, y otra para borrar el registro de una evidencia que devuelva su ruta? El archivo en disco lo borra la API, porque la subida de imágenes es parte del backend.
+3. Para `PUT /auth/usuario`: ¿puedes agregar a `docs/db-functions.md` una función para actualizar nombre y hash de contraseña?

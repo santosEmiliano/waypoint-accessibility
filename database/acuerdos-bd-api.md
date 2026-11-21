@@ -47,13 +47,13 @@ Así la API no necesita una lista fija de transiciones permitidas, y la regla fu
 - `id_estado` no tiene valor por defecto: al crear un reporte se usa el estado con `orden_estado = 1`.
 - Latitud y longitud son opcionales (pueden ir `NULL` si no hay permiso de GPS); `ubicacion_reporte` (texto) es obligatorio.
 - Cancelar = `cancelado_reporte = 1`. Los reportes nunca se borran.
+- `razon_cancelacion_reporte` (`TEXT`) es **opcional**: el usuario puede cancelar sin escribir una razón. Es `NULL` mientras el reporte no está cancelado o si se canceló sin razón. Se guarda solo en `reportes`, no en `historial` (el renglón de tipo `cancelacion` deja `descripcion_historial` en `NULL`). El límite de caracteres lo pone la API, como en `descripcion_reporte`.
 
 ## Evidencias
 
 - `tipo_evidencia` es un `ENUM('reporte','atencion')`: la BD rechaza cualquier otro valor.
 - En la BD solo se guarda `ruta_evidencia` (el nombre del archivo en `uploads/`), no la imagen.
 - **El nombre del archivo lo genera el servidor (por ejemplo, un UUID).** Nunca usar el nombre que manda el cliente, para evitar *path traversal* (`../../archivo`).
-- Quitar una foto es **borrado físico**: se elimina la fila y la API borra el archivo del disco.
 
 ## Acciones correctivas
 
