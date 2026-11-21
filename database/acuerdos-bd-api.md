@@ -54,7 +54,6 @@ Así la API no necesita una lista fija de transiciones permitidas, y la regla fu
 - `tipo_evidencia` es un `ENUM('reporte','atencion')`: la BD rechaza cualquier otro valor.
 - En la BD solo se guarda `ruta_evidencia` (el nombre del archivo en `uploads/`), no la imagen.
 - **El nombre del archivo lo genera el servidor (por ejemplo, un UUID).** Nunca usar el nombre que manda el cliente, para evitar *path traversal* (`../../archivo`).
-- Quitar una foto es **borrado físico**: se elimina la fila y la API borra el archivo del disco.
 
 ## Acciones correctivas
 
