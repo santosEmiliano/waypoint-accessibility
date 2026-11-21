@@ -18,6 +18,8 @@ services:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
     volumes:
       - mysql_datos:/var/lib/mysql
+      # Scripts que MySQL corre solo al crear el volumen (BD auxiliar de Prisma)
+      - ./database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # Por TCP, para no dar por listo al servidor temporal de la primera inicialización
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
