@@ -67,11 +67,61 @@ chore/<tema>     configuración y mantenimiento
 
 Cada parte documenta aquí su instalación y ejecución cuando queda lista.
 
-- **Base de datos:** pendiente (Julián).
+- **Base de datos:** ver [Base de datos](#base-de-datos).
 - **Backend:** pendiente (Harim).
 - **Frontend:** pendiente (Santos).
 
 Variables de entorno: copiar `.env.example` a `.env` y completar los valores.
+
+### Base de datos
+
+MySQL 8.4 y Redis corren en Docker. Solo se necesita [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+1. Copiar `.env.example` a `.env` en la raíz del repo y poner las contraseñas. Las reales se pasan por privado; nunca se suben al repo. Usar solo letras, números, `-` y `_`: caracteres como `@ / : # $` o espacios rompen `DATABASE_URL` y `REDIS_URL`, o hacen que Docker y la API lean contraseñas distintas.
+2. Levantar la BD desde la raíz:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. Revisar que los dos servicios digan `healthy`:
+
+   ```bash
+   docker compose ps
+   ```
+
+Para detenerla: `docker compose down`. Los datos se quedan guardados en los volúmenes `waypoint_mysql_datos` y `waypoint_redis_datos`.
+
+> **Ojo:** `docker compose down -v` borra los volúmenes, o sea, **todos los datos**.
+
+- MySQL queda en `127.0.0.1:3306` y Redis en `127.0.0.1:6379`, solo accesibles desde la misma computadora. En las URL se usa `127.0.0.1` y no `localhost`, para no terminar conectado a otro MySQL instalado en Windows.
+- Si un puerto ya está ocupado, `docker compose up` falla con `ports are not available` o `address already in use`. Lo típico es el servicio **MySQL80** de Windows o el Redis de otro proyecto. Se arregla deteniendo ese servicio, o cambiando `DB_PORT` o `REDIS_PORT` en el `.env` y también el puerto dentro de `DATABASE_URL` o `REDIS_URL`.
+- Si cambias `DB_USER`, `DB_PASSWORD` o `DB_ROOT_PASSWORD` después de haber levantado la BD, MySQL no los toma: solo los lee la primera vez. Hay que borrar el volumen con `down -v` y volver a levantarla.
+#### Esquema con Prisma
+
+El esquema vive en `backend/prisma/schema.prisma` y las migraciones en `backend/prisma/migrations/`. Se usa **Prisma 7.10.1**: no instalar `prisma` sin versión, porque npm baja una versión de prueba de Prisma 8. Los comandos se corren **desde `backend/`**, con la BD ya levantada:
+
+```bash
+cd backend
+npm install
+npm run db:deploy     # crea las tablas aplicando las migraciones
+npm run db:generate   # genera el cliente de Prisma (backend/src/generated/, no se sube)
+```
+
+| Comando | Para qué |
+|---|---|
+| `npm run db:deploy` | Aplica las migraciones pendientes. Es el que usan todos |
+| `npm run db:generate` | Vuelve a generar el cliente después de un `npm install` o de cambiar el esquema |
+| `npm run db:status` | Dice si la BD está al día con las migraciones |
+| `npm run db:migrate` | Solo para quien cambia `schema.prisma`: crea una migración nueva. Usa `SHADOW_DATABASE_URL` |
+
+`db:migrate` necesita `SHADOW_DATABASE_URL` en el `.env`. Si copiaste tu `.env` antes de que existiera esa variable, agrégala desde `.env.example`; los demás comandos funcionan sin ella. La base `waypoint_shadow` la crea Docker la primera vez que se levanta MySQL (`database/init/`). Si tu volumen ya existía, créala una vez:
+
+```bash
+docker compose exec mysql mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS waypoint_shadow"
+```
+
+Los datos iniciales (roles, categorías, estados y el operador) se cargan con la semilla del issue #15.
 
 ## Documentación técnica
 

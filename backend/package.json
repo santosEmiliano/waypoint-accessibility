@@ -1,0 +1,25 @@
+{
+  "name": "waypoint-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend temporal de Waypoint: solo la parte de la BD (Prisma) hasta integrar el servidor de Harim",
+  "type": "module",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
+    "db:status": "prisma migrate status"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "prisma": "7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-mariadb": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "^18.0.10"
+  }
+}
