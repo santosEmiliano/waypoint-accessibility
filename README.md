@@ -97,6 +97,7 @@ Para detenerla: `docker compose down`. Los datos se quedan guardados en los vol�
 - MySQL queda en `127.0.0.1:3306` y Redis en `127.0.0.1:6379`, solo accesibles desde la misma computadora. En las URL se usa `127.0.0.1` y no `localhost`, para no terminar conectado a otro MySQL instalado en Windows.
 - Si un puerto ya está ocupado, `docker compose up` falla con `ports are not available` o `address already in use`. Lo típico es el servicio **MySQL80** de Windows o el Redis de otro proyecto. Se arregla deteniendo ese servicio, o cambiando `DB_PORT` o `REDIS_PORT` en el `.env` y también el puerto dentro de `DATABASE_URL` o `REDIS_URL`.
 - Si cambias `DB_USER`, `DB_PASSWORD` o `DB_ROOT_PASSWORD` después de haber levantado la BD, MySQL no los toma: solo los lee la primera vez. Hay que borrar el volumen con `down -v` y volver a levantarla.
+
 #### Esquema con Prisma
 
 El esquema vive en `backend/prisma/schema.prisma` y las migraciones en `backend/prisma/migrations/`. Se usa **Prisma 7.10.1**: no instalar `prisma` sin versión, porque npm baja una versión de prueba de Prisma 8. Los comandos se corren **desde `backend/`**, con la BD ya levantada:
