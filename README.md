@@ -67,11 +67,37 @@ chore/<tema>     configuración y mantenimiento
 
 Cada parte documenta aquí su instalación y ejecución cuando queda lista.
 
-- **Base de datos:** pendiente (Julián).
+- **Base de datos:** ver [Base de datos](#base-de-datos).
 - **Backend:** ver [Backend](#backend).
 - **Frontend:** pendiente (Santos).
 
 Variables de entorno: copiar `.env.example` a `.env` y completar los valores.
+
+### Base de datos
+
+MySQL 8.4 y Redis corren en Docker. Solo se necesita [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+1. Copiar `.env.example` a `.env` en la raíz del repo y poner las contraseñas. Las reales se pasan por privado; nunca se suben al repo. Usar solo letras, números, `-` y `_`: caracteres como `@ / : # $` o espacios rompen `DATABASE_URL` y `REDIS_URL`, o hacen que Docker y la API lean contraseñas distintas.
+2. Levantar la BD desde la raíz:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. Revisar que los dos servicios digan `healthy`:
+
+   ```bash
+   docker compose ps
+   ```
+
+Para detenerla: `docker compose down`. Los datos se quedan guardados en los volúmenes `waypoint_mysql_datos` y `waypoint_redis_datos`.
+
+> **Ojo:** `docker compose down -v` borra los volúmenes, o sea, **todos los datos**.
+
+- MySQL queda en `127.0.0.1:3306` y Redis en `127.0.0.1:6379`, solo accesibles desde la misma computadora. En las URL se usa `127.0.0.1` y no `localhost`, para no terminar conectado a otro MySQL instalado en Windows.
+- Si un puerto ya está ocupado, `docker compose up` falla con `ports are not available` o `address already in use`. Lo típico es el servicio **MySQL80** de Windows o el Redis de otro proyecto. Se arregla deteniendo ese servicio, o cambiando `DB_PORT` o `REDIS_PORT` en el `.env` y también el puerto dentro de `DATABASE_URL` o `REDIS_URL`.
+- Si cambias `DB_USER`, `DB_PASSWORD` o `DB_ROOT_PASSWORD` después de haber levantado la BD, MySQL no los toma: solo los lee la primera vez. Hay que borrar el volumen con `down -v` y volver a levantarla.
+- El esquema y los datos iniciales (roles, categorías, estados y el operador) se cargan con Prisma (issues #14 y #15).
 
 ### Backend
 
