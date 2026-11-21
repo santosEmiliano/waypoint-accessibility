@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
-// CORS_ORIGIN se lee al importar la app, por eso va antes del import
-process.env.CORS_ORIGIN = 'http://localhost:8080';
+// CORS_ORIGIN se lee al importar la app, por eso va antes del import.
+// El espacio después de la coma es a propósito: comprueba que se recorta.
+process.env.CORS_ORIGIN = 'http://localhost:8080, http://localhost:3001';
 const { default: app } = await import('../src/app.js');
 
 describe('GET /health', () => {
@@ -47,6 +48,12 @@ describe('CORS', () => {
     const res = await request(app).get('/health').set('Origin', 'http://localhost:8080');
 
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:8080');
+  });
+
+  it('permite varios orígenes aunque lleven espacio después de la coma', async () => {
+    const res = await request(app).get('/health').set('Origin', 'http://localhost:3001');
+
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3001');
   });
 
   it('no permite un origen ajeno', async () => {
