@@ -47,6 +47,7 @@ Así la API no necesita una lista fija de transiciones permitidas, y la regla fu
 - `id_estado` no tiene valor por defecto: al crear un reporte se usa el estado con `orden_estado = 1`.
 - Latitud y longitud son opcionales (pueden ir `NULL` si no hay permiso de GPS); `ubicacion_reporte` (texto) es obligatorio.
 - Cancelar = `cancelado_reporte = 1`. Los reportes nunca se borran.
+- `razon_cancelacion_reporte` (`TEXT`) es **opcional**: el usuario puede cancelar sin escribir una razón. Es `NULL` mientras el reporte no está cancelado o si se canceló sin razón. Se guarda solo en `reportes`, no en `historial` (el renglón de tipo `cancelacion` deja `descripcion_historial` en `NULL`). El límite de caracteres lo pone la API, como en `descripcion_reporte`.
 
 ## Evidencias
 

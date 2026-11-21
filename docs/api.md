@@ -125,7 +125,7 @@ El JSON usa los mismos nombres que las columnas de la BD: snake_case con sufijo 
 
 `contrasena_usuario` nunca aparece en una respuesta.
 
-El modelo completo está en `docs/db/` y los acuerdos entre la BD y la API en `docs/db/acuerdos-bd-api.md`.
+El modelo completo está en `database/` y los acuerdos entre la BD y la API en `database/acuerdos-bd-api.md`.
 
 Las fechas se devuelven en formato ISO 8601 (`2026-11-19T18:30:00Z`).
 
