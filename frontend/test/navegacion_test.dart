@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:waypoint/aplicacion.dart';
+import 'package:waypoint/componentes/dock_flotante.dart';
+import 'package:waypoint/componentes/encabezado_web.dart';
+
+void main() {
+  // Simula la pantalla de un teléfono o de una computadora.
+  void usarPantalla(WidgetTester tester, double ancho, double alto) {
+    tester.view.physicalSize = Size(ancho, alto);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
+  // Abre la app y entra con el botón provisional del inicio de sesión.
+  Future<void> entrarComo(WidgetTester tester, String boton) async {
+    await tester.pumpWidget(const AplicacionWaypoint());
+    await tester.tap(find.text(boton));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('el usuario ve Inicio, Reportes, Nuevo y Perfil', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    for (final nombre in ['Inicio', 'Reportes', 'Nuevo', 'Perfil']) {
+      expect(find.text(nombre), findsOneWidget);
+    }
+    expect(find.text('Bandeja'), findsNothing);
+  });
+
+  testWidgets('el operador ve la Bandeja en lugar de Nuevo', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como operador');
+
+    expect(find.text('Bandeja'), findsOneWidget);
+    expect(find.text('Nuevo'), findsNothing);
+  });
+
+  testWidgets('al tocar Reportes se ve el listado', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    await tester.tap(find.text('Reportes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Listado de reportes'), findsOneWidget);
+  });
+
+  testWidgets('Nuevo abre el formulario y se puede volver', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    await tester.tap(find.text('Nuevo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nuevo reporte'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Principal'), findsOneWidget);
+  });
+
+  testWidgets('desde el listado se llega al detalle', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    await tester.tap(find.text('Reportes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver un reporte de ejemplo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detalle del reporte'), findsOneWidget);
+  });
+
+  testWidgets('en el celular se usa el dock', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    expect(find.byType(DockFlotante), findsOneWidget);
+    expect(find.byType(EncabezadoWeb), findsNothing);
+  });
+
+  testWidgets('en pantalla ancha se usa el encabezado', (tester) async {
+    usarPantalla(tester, 1280, 800);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    expect(find.byType(EncabezadoWeb), findsOneWidget);
+    expect(find.byType(DockFlotante), findsNothing);
+  });
+
+  testWidgets('Salir regresa al inicio de sesión', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+  });
+}
