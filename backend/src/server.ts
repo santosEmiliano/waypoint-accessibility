@@ -1,7 +1,10 @@
-import app from './app.js';
-import { prisma } from './db/prisma.ts';
+import app from './app';
+import { prisma } from './db/prisma';
 
-const puerto = process.env.PORT || 3000;
+const puerto = Number(process.env.PORT) || 3000;
+
+// Solo se describe la parte del error de Prisma que se usa abajo
+type ErrorDeConexion = { meta?: { driverAdapterError?: { cause?: { cause?: string } } } };
 
 // Se comprueba la BD antes de abrir el puerto, para que el servidor no arranque sin ella
 console.log('Conectando a la BD...');
@@ -10,7 +13,9 @@ try {
   console.log('Conectado a la BD');
 } catch (error) {
   // Prisma guarda la causa real (por ejemplo, ECONNREFUSED) dentro de meta
-  const causa = error.meta?.driverAdapterError?.cause?.cause ?? error.message;
+  const causa =
+    (error as ErrorDeConexion).meta?.driverAdapterError?.cause?.cause ??
+    (error instanceof Error ? error.message : String(error));
   console.error(`No se pudo conectar a la BD: ${causa}`);
   console.error('Revisa que la BD esté levantada (docker compose up -d) y que DATABASE_URL del .env tenga el usuario y la contraseña correctos');
   process.exit(1);

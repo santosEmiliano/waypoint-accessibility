@@ -137,7 +137,7 @@ npm run db:seed
 
 ### Backend
 
-Requiere Node.js 22.12 o superior.
+Requiere Node.js 22.12 o superior. Está escrito en TypeScript y corre con tsx, sin compilar.
 
 1. Copiar las variables de entorno en la raíz del repositorio. El backend lee el `.env` de la raíz, no de `backend/`, y sin ese archivo no arranca.
 
