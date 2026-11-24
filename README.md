@@ -155,15 +155,19 @@ Requiere Node.js 22.12 o superior.
    npm install
    ```
 
-3. Levantar el servidor. Se reinicia solo al guardar cambios.
+3. Levantar la BD y generar el cliente de Prisma, como se explica en [Base de datos](#base-de-datos) y [Esquema con Prisma](#esquema-con-prisma). Sin la BD el servidor no arranca.
+
+4. Levantar el servidor. Se reinicia solo al guardar cambios.
 
    ```
    npm run dev
    ```
 
+   Al arrancar comprueba la conexión a la BD y debe mostrar `Conectado a la BD`. Si la BD no responde, tarda unos 20 segundos, muestra la causa y se detiene.
+
    Para comprobar que está activo, abrir `http://localhost:3000/health`, que responde `{"estado":"ok"}`.
 
-4. Correr las pruebas automáticas. No necesitan el servidor levantado.
+5. Correr las pruebas automáticas. No necesitan el servidor ni la BD levantados.
 
    ```
    npm test
