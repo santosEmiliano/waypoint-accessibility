@@ -25,6 +25,7 @@ import { listarHistorial } from "../src/db/historial";
 import {
   armarFiltros,
   asignarReporte,
+  escaparLike,
   cambiarEstadoReporte,
   cancelarReporte,
   crearReporte,
@@ -118,6 +119,14 @@ describe("armarFiltros", () => {
   it("el texto se recorta y uno vacío no filtra", () => {
     expect(armarFiltros({ texto: "  rampa " }).OR).toHaveLength(3);
     expect(armarFiltros({ texto: "   " })).toEqual({ canceladoReporte: false });
+  });
+
+  it("escapa los comodines de LIKE para que se busquen como texto", () => {
+    expect(escaparLike("100%")).toBe(String.raw`100\%`);
+    expect(escaparLike("a_b")).toBe(String.raw`a\_b`);
+    expect(escaparLike(String.raw`C:\ruta`)).toBe(String.raw`C:\\ruta`);
+    expect(escaparLike("rampa")).toBe("rampa");
+    expect(armarFiltros({ texto: "50%" }).OR).toContainEqual({ tituloReporte: { contains: String.raw`50\%` } });
   });
 
   it("un id 0 sí cuenta como filtro", () => {
