@@ -1,3 +1,5 @@
+import 'usuario_resumen.dart';
+
 // El usuario de la sesión.
 class Usuario {
   final int id;
@@ -15,6 +17,9 @@ class Usuario {
   });
 
   bool get esOperador => rol == 'operador';
+
+  // La versión corta de los usuarios, la que va dentro de un reporte o del historial.
+  UsuarioResumen get resumen => UsuarioResumen(id: id, nombre: nombre);
 
   factory Usuario.desdeJson(Map<String, dynamic> m) {
     return Usuario(
