@@ -33,6 +33,15 @@ describe('Errores', () => {
     expect(res.body.error.codigo).toBe('VALIDACION');
   });
 
+  it('pasa el cuerpo por la sanitización antes de las rutas: un JSON muy anidado responde 400', async () => {
+    const res = await request(app)
+      .post('/health')
+      .send({ a: { b: { c: { d: { e: { f: 'demasiado hondo' } } } } } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.codigo).toBe('VALIDACION');
+  });
+
   it('responde 400 VALIDACION si el JSON pasa de 20 KB', async () => {
     const res = await request(app)
       .post('/health')
