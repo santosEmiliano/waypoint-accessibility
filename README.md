@@ -173,6 +173,12 @@ Requiere Node.js 22.12 o superior.
    npm test
    ```
 
+6. Revisar los tipos de TypeScript. Ni el servidor ni las pruebas los revisan: corren el código aunque tenga errores de tipos.
+
+   ```
+   npm run typecheck
+   ```
+
 **Pruebas en Postman:** importar `docs/postman/waypoint-api.postman_collection.json` con **Import**. Las peticiones apuntan a `http://localhost:3000`, así que el servidor debe estar levantado.
 
 **Versión web de Flutter:** el backend solo acepta peticiones del navegador desde los orígenes de `CORS_ORIGIN` (por defecto `http://localhost:8080`). Hay que levantar la versión web en ese puerto; si Flutter elige un puerto al azar, el navegador bloquea las respuestas.

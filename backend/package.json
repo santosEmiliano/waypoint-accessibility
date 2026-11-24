@@ -12,6 +12,7 @@
     "dev": "node --watch --env-file=../.env --import tsx src/server.js",
     "start": "node --env-file=../.env --import tsx src/server.js",
     "test": "vitest run",
+    "typecheck": "tsc",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -28,7 +29,10 @@
     "express": "^5.3.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
+    "@types/supertest": "^7.2.1",
     "prisma": "7.10.1",
     "supertest": "^7.3.2",
     "tsx": "^4.23.15",
