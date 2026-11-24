@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Raíz de la aplicación. Aquí se configurarán el tema, las rutas y los
-/// proveedores de estado conforme se vayan creando.
+import 'pantallas/inicio_sesion.dart';
+import 'tema/tema_waypoint.dart';
+
+/// Raíz de la aplicación.
 class AplicacionWaypoint extends StatelessWidget {
   const AplicacionWaypoint({super.key});
 
@@ -10,13 +12,11 @@ class AplicacionWaypoint extends StatelessWidget {
     return MaterialApp(
       title: 'Waypoint',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: const Scaffold(
-        body: Center(child: Text('Waypoint')),
-      ),
+      theme: TemaWaypoint.claro,
+      darkTheme: TemaWaypoint.oscuro,
+      // Sigue el modo claro u oscuro que tenga el teléfono.
+      themeMode: ThemeMode.system,
+      home: const PantallaInicioSesion(),
     );
   }
 }
