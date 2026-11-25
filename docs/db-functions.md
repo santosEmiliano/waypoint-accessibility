@@ -170,12 +170,84 @@ await prisma.$transaction(async (tx) => {
 
 Las funciones de reportes ya la usan; hay que llamarla directamente solo para lo que todavía no tiene función propia: `edicion` (`PUT /reportes/:id`, #30) y `accion_correctiva` (`POST /reportes/:id/acciones`, #38).
 
+### `consultarHistorial(idReporte, { idUsuario? })`
+
+Para `GET /reportes/:id/historial` (#46). Revisa que quien consulta pueda ver el reporte y devuelve su línea de tiempo.
+
+- Con `idUsuario` (quien consulta es un `usuario`) solo responde si el reporte es suyo. El de otro usuario devuelve `null`, igual que uno que no existe, para que la API responda `404` sin revelar que existe.
+- Sin `idUsuario` (el operador) busca entre todos.
+- **Retorna:** `FilaHistorial[]` (lo mismo que `listarHistorial`), o `null`.
+
+```js
+const historial = await consultarHistorial(id, { idUsuario: esOperador ? undefined : req.usuario.idUsuario });
+if (!historial) return responder404();
+```
+
 ### `listarHistorial(idReporte)`
 
-- **Retorna:** las filas del reporte de la más antigua a la más reciente, cada una con `tipoHistorial`, `descripcionHistorial`, `creacionHistorial`, `estadoAnterior`, `estadoNuevo` y `usuario` (`{ idUsuario, nombreUsuario }`).
-- No revisa de quién es el reporte: la API primero lo consulta con `obtenerReporte` (que sí lo revisa) y responde `404` si no es suyo.
+- **Retorna:** `FilaHistorial[]`, de la más antigua a la más reciente. Cada fila trae `idHistorial`, `tipoHistorial`, `descripcionHistorial`, `creacionHistorial`, `estadoAnterior` y `estadoNuevo` (`{ idEstado, nombreEstado, ordenEstado }` o `null`) y `usuario`, el responsable del movimiento (`{ idUsuario, nombreUsuario }`, sin correo).
+- La fecha se guarda sin milisegundos, así que dos movimientos del mismo segundo (crear y asignar, por ejemplo) se ordenan por su id, que es el orden en que se escribieron.
+- No revisa de quién es el reporte. Para la API conviene `consultarHistorial`, que sí lo revisa.
+
+## Evidencias
+
+Archivo: `backend/src/db/evidencias.ts`. En la BD solo se guarda la ruta del archivo y sus datos, nunca la imagen. Es de solo inserción: una foto subida no se borra (`docs/api.md`).
+
+**Qué devuelven.** Una `Evidencia`:
+
+```ts
+{
+  idEvidencia, tipoEvidencia,               // "reporte" o "atencion"
+  rutaEvidencia,                            // por ejemplo "/uploads/<uuid>.jpg"
+  creacionEvidencia,
+  usuario: { idUsuario, nombreUsuario },    // quien subió la foto
+}
+```
+
+### `guardarEvidencia({ idReporte, idUsuario, tipo, ruta })`
+
+Guarda los datos de una foto que la API ya escribió en `uploads/` (#45).
+
+| Parámetro | Tipo | Notas |
+|---|---|---|
+| `idReporte` | `number` | El reporte al que pertenece |
+| `idUsuario` | `number` | Quien la subió |
+| `tipo` | `"reporte"` o `"atencion"` | Lo decide la API según el rol, la app no lo manda |
+| `ruta` | `string` | La que la API va a responder en `ruta_evidencia`. Se recorta; de 1 a 500 caracteres |
+
+- **Retorna:** `Evidencia`.
+- **Lanza:**
+  - `RutaDuplicadaError` si ya hay una evidencia con esa ruta (es `UNIQUE`; con nombres UUID no debería pasar).
+  - El error de la BD si el reporte o el usuario no existen (llave foránea).
+  - `Error` si la ruta está vacía o pasa de 500 caracteres, o si el tipo no es `reporte` ni `atencion`. No toca la BD.
+- **No valida** quién puede subir ni en qué estado (creador en Reportado → `reporte`; operador asignado en En análisis o En atención → `atencion`). Eso lo revisa la API antes de escribir el archivo (`docs/api.md`).
+
+### `listarEvidencias(idReporte, { idUsuario? })`
+
+Para `GET /reportes/:id/evidencias` (#45).
+
+- Las fotos de los dos tipos, de la más antigua a la más reciente (las del mismo segundo, por id).
+- Con `idUsuario` solo responde si el reporte es suyo; si es de otro o no existe devuelve `null` (la API responde `404`). Sin `idUsuario` (el operador) busca entre todos.
+- **Retorna:** `Evidencia[]` (`[]` si no tiene fotos), o `null`.
+
+### `contarEvidenciasPorTipo(idReporte)`
+
+- **Retorna:** `{ reporte, atencion }`, cuántas fotos de cada tipo tiene. Siempre trae los dos (`0` si no hay).
+- Es para la regla del sistema: para pasar a Resuelto hace falta al menos una foto de tipo `atencion`. La API la usa antes de llamar a `cambiarEstadoReporte`:
+
+```js
+if (estadoNuevo.ordenEstado === ORDEN_ESTADO_FINAL) {
+  const { atencion } = await contarEvidenciasPorTipo(id);
+  if (atencion === 0) return responder422("FALTA_EVIDENCIA_ATENCION");
+}
+```
+
+- No hay carrera entre contar y cambiar el estado: las fotos nunca se borran, así que el conteo solo puede subir.
 
 ## Pruebas
 
-- `backend/tests/reportes.test.ts`: lógica de las funciones con Prisma simulado (no necesita la BD).
-- `backend/tests/historial.integracion.test.ts`: contra la **BD real**, incluida la prueba de que si falla el historial el estado no cambia. Necesita `docker compose up -d` con la BD migrada y sembrada; si no está disponible, se salta sola.
+- `backend/tests/reportes.test.ts` y `backend/tests/evidencias.test.ts`: lógica de las funciones con Prisma simulado (no necesitan la BD).
+- `backend/tests/historial.integracion.test.ts`: contra la **BD real**, incluida la prueba de que si falla el historial el estado no cambia, y la de `consultarHistorial` (orden, responsable y quién puede verlo).
+- `backend/tests/evidencias.integracion.test.ts`: contra la **BD real**: ruta repetida, reporte que no existe, conteo por tipo, orden y quién puede ver las fotos.
+
+Las de BD real necesitan `docker compose up -d` con la BD migrada y sembrada; si no está disponible, se saltan solas.
