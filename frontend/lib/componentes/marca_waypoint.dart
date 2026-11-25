@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../tema/colores_waypoint.dart';
 
 /// El logo de waypoint. Una cuadrícula de 3 × 3 puntos con el centro amarillo.
-class MarcaWaypoint extends StatelessWidget {
+///
+/// Con [respira] el punto amarillo crece y se hace pequeño despacio.
+class MarcaWaypoint extends StatefulWidget {
   const MarcaWaypoint({
     super.key,
     this.tamano = 32,
     this.colorPuntos,
     this.colorBorde,
+    this.respira = false,
   });
 
   final double tamano;
@@ -19,6 +22,52 @@ class MarcaWaypoint extends StatelessWidget {
   /// Contorno del punto central.
   final Color? colorBorde;
 
+  /// Anima el punto amarillo.
+  final bool respira;
+
+  @override
+  State<MarcaWaypoint> createState() => _EstadoMarcaWaypoint();
+}
+
+class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controlador = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  );
+  late final Animation<double> _respiracion = CurvedAnimation(
+    parent: _controlador,
+    curve: Curves.easeInOut,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _actualizarAnimacion();
+  }
+
+  @override
+  void didUpdateWidget(MarcaWaypoint anterior) {
+    super.didUpdateWidget(anterior);
+    _actualizarAnimacion();
+  }
+
+  void _actualizarAnimacion() {
+    final animar = widget.respira && !MediaQuery.disableAnimationsOf(context);
+    if (animar && !_controlador.isAnimating) {
+      _controlador.repeat(reverse: true);
+    } else if (!animar && _controlador.isAnimating) {
+      _controlador.stop();
+      _controlador.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colores;
@@ -26,11 +75,12 @@ class MarcaWaypoint extends StatelessWidget {
     // Es decorado.
     return ExcludeSemantics(
       child: CustomPaint(
-        size: Size.square(tamano),
+        size: Size.square(widget.tamano),
         painter: _PintorMarca(
-          colorPuntos: colorPuntos ?? c.tinta,
+          colorPuntos: widget.colorPuntos ?? c.tinta,
           colorGuia: c.guia,
-          colorBorde: colorBorde ?? c.sobreGuia,
+          colorBorde: widget.colorBorde ?? c.sobreGuia,
+          respiracion: _respiracion,
         ),
       ),
     );
@@ -42,8 +92,10 @@ class _PintorMarca extends CustomPainter {
     required this.colorPuntos,
     required this.colorGuia,
     required this.colorBorde,
-  });
+    required this.respiracion,
+  }) : super(repaint: respiracion);
 
+  final Animation<double> respiracion;
   final Color colorPuntos;
   final Color colorGuia;
   final Color colorBorde;
@@ -66,15 +118,17 @@ class _PintorMarca extends CustomPainter {
       }
     }
 
+    // El punto central crece hasta un 12 %, sin llegar a tocar a los vecinos.
+    final latido = 1 + 0.12 * respiracion.value;
     final centro = punto(50, 50);
-    canvas.drawCircle(centro, 13 * escala, Paint()..color = colorGuia);
+    canvas.drawCircle(centro, 13 * escala * latido, Paint()..color = colorGuia);
     canvas.drawCircle(
       centro,
-      13 * escala,
+      13 * escala * latido,
       Paint()
         ..color = colorBorde
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 5 * escala,
+        ..strokeWidth = 5 * escala * latido,
     );
   }
 
