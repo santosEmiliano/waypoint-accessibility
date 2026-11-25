@@ -1,0 +1,22 @@
+# Ajustes para el servidor (droplet de 1 GB). Se usa encima de docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Pasos completos en docs/despliegue-bd.md.
+#
+# Los puertos siguen solo en 127.0.0.1 (lo define docker-compose.yml): MySQL y Redis no quedan
+# abiertos a internet. El backend los usa desde el mismo servidor y el equipo entra con un túnel SSH.
+
+services:
+  mysql:
+    # Que vuelva a arrancar también después de reiniciar el servidor
+    restart: always
+    # MySQL 8.4 reserva más memoria de la que cabe junto al backend en 1 GB.
+    # Para los datos de este proyecto sobra con esto.
+    command:
+      - mysqld
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+      - --max-connections=40
+      - --skip-name-resolve
+
+  redis:
+    restart: always
