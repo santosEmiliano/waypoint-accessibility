@@ -15,19 +15,35 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  // Abre la app y entra con el botón provisional del inicio de sesión.
-  Future<void> entrarComo(WidgetTester tester, String boton) async {
+  // Abre la app y entra escribiendo el correo y la contraseña.
+  Future<void> entrarCon(
+    WidgetTester tester,
+    String correo,
+    String contrasena,
+  ) async {
+    // Sin movimiento: el logo no respira y pumpAndSettle puede terminar.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     final sesion = Sesion(
       repositorio: RepositorioFalso(retraso: Duration.zero),
     );
     await tester.pumpWidget(AplicacionWaypoint(sesion: sesion));
-    await tester.tap(find.text(boton));
+    await tester.enterText(find.byType(TextFormField).at(0), correo);
+    await tester.enterText(find.byType(TextFormField).at(1), contrasena);
+    await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
   }
 
+  Future<void> entrarComoUsuario(WidgetTester tester) =>
+      entrarCon(tester, 'ana@ejemplo.com', 'contrasena123');
+
+  Future<void> entrarComoOperador(WidgetTester tester) =>
+      entrarCon(tester, 'operador@waypoint.local', 'Operador123!');
+
   testWidgets('el usuario ve Inicio, Reportes, Nuevo y Perfil', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     for (final nombre in ['Inicio', 'Reportes', 'Nuevo', 'Perfil']) {
       expect(find.text(nombre), findsOneWidget);
@@ -37,7 +53,7 @@ void main() {
 
   testWidgets('el operador ve la Bandeja en lugar de Nuevo', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como operador');
+    await entrarComoOperador(tester);
 
     expect(find.text('Bandeja'), findsOneWidget);
     expect(find.text('Nuevo'), findsNothing);
@@ -45,7 +61,7 @@ void main() {
 
   testWidgets('al tocar Reportes se ve el listado', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     await tester.tap(find.text('Reportes'));
     await tester.pumpAndSettle();
@@ -55,7 +71,7 @@ void main() {
 
   testWidgets('Nuevo abre el formulario y se puede volver', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     await tester.tap(find.text('Nuevo'));
     await tester.pumpAndSettle();
@@ -68,7 +84,7 @@ void main() {
 
   testWidgets('desde el listado se llega al detalle', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     await tester.tap(find.text('Reportes'));
     await tester.pumpAndSettle();
@@ -80,7 +96,7 @@ void main() {
 
   testWidgets('en el celular se usa el dock', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     expect(find.byType(DockFlotante), findsOneWidget);
     expect(find.byType(EncabezadoWeb), findsNothing);
@@ -88,7 +104,7 @@ void main() {
 
   testWidgets('en pantalla ancha se usa el encabezado', (tester) async {
     usarPantalla(tester, 1280, 800);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     expect(find.byType(EncabezadoWeb), findsOneWidget);
     expect(find.byType(DockFlotante), findsNothing);
@@ -96,7 +112,7 @@ void main() {
 
   testWidgets('el perfil muestra con quién se inició sesión', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
@@ -106,13 +122,13 @@ void main() {
 
   testWidgets('Salir regresa al inicio de sesión', (tester) async {
     usarPantalla(tester, 390, 844);
-    await entrarComo(tester, 'Entrar como usuario');
+    await entrarComoUsuario(tester);
 
     await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salir'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
   });
 }
