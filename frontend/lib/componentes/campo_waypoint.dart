@@ -10,6 +10,8 @@ class CampoWaypoint extends StatefulWidget {
     this.pista, // El placeholder
     this.validador, // Validaciones que aplican al input
     this.teclado, // Tipo de teclado que utiliza
+    this.mayusculas = TextCapitalization.none, // Por ejemplo, para nombres
+    this.ayuda, // Texto debajo del input para dar mensajes o instrucciones (como "Mínimo 8 caracteres")
     this.esContrasena = false, // Muestra o no la opción para ocultar el texto
     this.errorServidor, // Errores que vienen del backend
     this.alCambiar,
@@ -26,6 +28,10 @@ class CampoWaypoint extends StatefulWidget {
 
   final String? Function(String?)? validador;
   final TextInputType? teclado;
+  final TextCapitalization mayusculas;
+
+  /// Texto que se ve debajo mientras el campo no tenga un error.
+  final String? ayuda;
   final bool esContrasena;
 
   /// Problema de este campo que devolvió el servidor.
@@ -70,6 +76,7 @@ class _EstadoCampo extends State<CampoWaypoint> {
             controller: widget.controlador,
             enabled: widget.habilitado,
             keyboardType: widget.teclado,
+            textCapitalization: widget.mayusculas,
             textInputAction: widget.accion,
             obscureText: widget.esContrasena && _oculta,
             autocorrect: !widget.esContrasena,
@@ -77,10 +84,14 @@ class _EstadoCampo extends State<CampoWaypoint> {
             validator: widget.validador,
             forceErrorText: widget.errorServidor,
             onChanged: widget.alCambiar,
+            // En IOS, el teclado no se cierra solo, entonces, al tocar fuera de los
+            // campos se quita el foco. Tocar otro campo no cuenta como fuera.
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             onFieldSubmitted: (_) => widget.alEnviar?.call(),
             style: texto.bodyLarge,
             decoration: InputDecoration(
               hintText: widget.pista,
+              helperText: widget.ayuda,
               suffixIcon: widget.esContrasena ? botonMostrar : null,
             ),
           ),
