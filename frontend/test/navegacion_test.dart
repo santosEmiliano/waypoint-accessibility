@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:waypoint/aplicacion.dart';
 import 'package:waypoint/componentes/dock_flotante.dart';
 import 'package:waypoint/componentes/encabezado_web.dart';
+import 'package:waypoint/servicios/repositorio_falso.dart';
+import 'package:waypoint/servicios/sesion.dart';
 
 void main() {
   // Simula la pantalla de un teléfono o de una computadora.
@@ -15,7 +17,10 @@ void main() {
 
   // Abre la app y entra con el botón provisional del inicio de sesión.
   Future<void> entrarComo(WidgetTester tester, String boton) async {
-    await tester.pumpWidget(const AplicacionWaypoint());
+    final sesion = Sesion(
+      repositorio: RepositorioFalso(retraso: Duration.zero),
+    );
+    await tester.pumpWidget(AplicacionWaypoint(sesion: sesion));
     await tester.tap(find.text(boton));
     await tester.pumpAndSettle();
   }
@@ -87,6 +92,16 @@ void main() {
 
     expect(find.byType(EncabezadoWeb), findsOneWidget);
     expect(find.byType(DockFlotante), findsNothing);
+  });
+
+  testWidgets('el perfil muestra con quién se inició sesión', (tester) async {
+    usarPantalla(tester, 390, 844);
+    await entrarComo(tester, 'Entrar como usuario');
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana López'), findsOneWidget);
   });
 
   testWidgets('Salir regresa al inicio de sesión', (tester) async {

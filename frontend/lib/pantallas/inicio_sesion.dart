@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../rutas/destinos.dart';
+import '../servicios/sesion.dart';
 import 'armazon.dart';
 import 'registro.dart';
 
 class PantallaInicioSesion extends StatelessWidget {
-  const PantallaInicioSesion({super.key});
+  const PantallaInicioSesion({super.key, required this.sesion});
 
-  // Abre el armazón con el rol elegido mediante los botones, sin poder volver al inicio de sesión.
-  void _entrar(BuildContext context, Rol rol) {
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => Armazon(rol: rol)));
+  final Sesion sesion;
+
+  // Inicia sesión con una cuenta de ejemplo y abre la interfaz principal.
+  Future<void> _entrar(
+    BuildContext context,
+    String correo,
+    String contrasena,
+  ) async {
+    await sesion.iniciarSesion(correo, contrasena);
+    if (!context.mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => Armazon(sesion: sesion)),
+    );
   }
 
   @override
@@ -26,15 +35,17 @@ class PantallaInicioSesion extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 24),
-              // Botones de pruebapara poder recorrer la app.
+              // Botones de prueba para poder recorrer la app con las cuentas de ejemplo.
               // Se quitarán cuando exista el inicio de sesión real.
               FilledButton(
-                onPressed: () => _entrar(context, Rol.usuario),
+                onPressed: () =>
+                    _entrar(context, 'ana@ejemplo.com', 'contrasena123'),
                 child: const Text('Entrar como usuario'),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: () => _entrar(context, Rol.operador),
+                onPressed: () =>
+                    _entrar(context, 'operador@waypoint.local', 'Operador123!'),
                 child: const Text('Entrar como operador'),
               ),
               const SizedBox(height: 12),

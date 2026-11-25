@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../componentes/dock_flotante.dart';
 import '../componentes/encabezado_web.dart';
 import '../rutas/destinos.dart';
+import '../servicios/sesion.dart';
 import 'administracion.dart';
 import 'formulario.dart';
 import 'listado.dart';
@@ -14,9 +15,9 @@ const double anchoEscritorio = 840;
 
 /// Marco con la navegación de la app, el dock en el celular, encabezado en web y escritorio.
 class Armazon extends StatefulWidget {
-  const Armazon({super.key, this.rol = Rol.usuario});
+  const Armazon({super.key, required this.sesion});
 
-  final Rol rol;
+  final Sesion sesion;
 
   @override
   State<Armazon> createState() => _EstadoArmazon();
@@ -31,7 +32,7 @@ class _EstadoArmazon extends State<Armazon> {
       Seccion.inicio => const PantallaPrincipal(),
       Seccion.reportes => const PantallaListado(),
       Seccion.bandeja => const PantallaAdministracion(),
-      Seccion.perfil => const PantallaPerfil(),
+      Seccion.perfil => PantallaPerfil(sesion: widget.sesion),
       // "Nuevo" no es una sección, es un formulario, por lo que aquí no se muestra.
       Seccion.nuevo => const SizedBox.shrink(),
     };
@@ -48,7 +49,9 @@ class _EstadoArmazon extends State<Armazon> {
 
   @override
   Widget build(BuildContext context) {
-    final destinos = destinosPara(widget.rol);
+    // Los botones salen del rol de quien inició sesión.
+    final esOperador = widget.sesion.usuario?.esOperador ?? false;
+    final destinos = destinosPara(esOperador ? Rol.operador : Rol.usuario);
     void alElegir(int i) => _elegir(destinos[i], i);
 
     // IndexedStack deja cada sección cargada al cambiar de una a otra.
