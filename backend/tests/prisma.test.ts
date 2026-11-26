@@ -12,6 +12,10 @@ describe("opcionesAdaptador", () => {
     });
   });
 
+  it("si la BD no responde, la espera por una conexión es corta (3 s)", () => {
+    expect(opcionesAdaptador("mysql://u:p@127.0.0.1/waypoint").acquireTimeout).toBe(3000);
+  });
+
   it("sin puerto usa el 3306", () => {
     expect(opcionesAdaptador("mysql://u:p@localhost/waypoint").port).toBe(3306);
   });
