@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'pantallas/inicio_sesion.dart';
+import 'pantallas/acceso.dart';
 import 'servicios/sesion.dart';
 import 'tema/tema_waypoint.dart';
 
@@ -26,7 +26,7 @@ class _EstadoAplicacion extends State<AplicacionWaypoint> {
       darkTheme: TemaWaypoint.oscuro,
       // Sigue el modo claro u oscuro que tenga el teléfono.
       themeMode: ThemeMode.system,
-      home: PantallaInicioSesion(sesion: _sesion),
+      home: PantallaAcceso(sesion: _sesion),
     );
   }
 }

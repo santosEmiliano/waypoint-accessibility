@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../servicios/sesion.dart';
-import 'inicio_sesion.dart';
+import 'acceso.dart';
 
 class PantallaPerfil extends StatelessWidget {
   const PantallaPerfil({super.key, required this.sesion});
@@ -13,7 +13,7 @@ class PantallaPerfil extends StatelessWidget {
     await sesion.cerrar();
     if (!context.mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => PantallaInicioSesion(sesion: sesion)),
+      MaterialPageRoute(builder: (_) => PantallaAcceso(sesion: sesion)),
     );
   }
 
