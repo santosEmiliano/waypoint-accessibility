@@ -140,8 +140,8 @@ model Historial {
 
   reporte        Reporte @relation(fields: [idReporte], references: [idReporte], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_reporte")
   usuario        Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_usuario")
-  estadoAnterior Estado? @relation("HistorialEstadoAnterior", fields: [idEstadoAnterior], references: [idEstado], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_estado_anterior")
-  estadoNuevo    Estado? @relation("HistorialEstadoNuevo", fields: [idEstadoNuevo], references: [idEstado], onDelete: Restrict, onUpdate: Cascade, map: "fk_historial_estado_nuevo")
+  estadoAnterior Estado? @relation("HistorialEstadoAnterior", fields: [idEstadoAnterior], references: [idEstado], onDelete: Restrict, onUpdate: Restrict, map: "fk_historial_estado_anterior")
+  estadoNuevo    Estado? @relation("HistorialEstadoNuevo", fields: [idEstadoNuevo], references: [idEstado], onDelete: Restrict, onUpdate: Restrict, map: "fk_historial_estado_nuevo")
 
   @@index([idReporte], map: "fk_historial_reporte_idx")
   @@index([idUsuario], map: "fk_historial_usuario_idx")
