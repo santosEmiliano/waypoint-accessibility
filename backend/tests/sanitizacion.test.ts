@@ -3,7 +3,7 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { limpiarTexto, PROFUNDIDAD_MAXIMA, sanitizar, sanitizarValor } from "../src/middlewares/sanitizacion";
 
-// Misma cadena que app.js: primero se lee el JSON y luego se limpia
+// Misma cadena que app.ts: primero se lee el JSON y luego se limpia
 function crearApp() {
   const app = express();
   app.use(express.json());

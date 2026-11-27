@@ -6,7 +6,7 @@ Todo vive en `backend/src/middlewares/`, en TypeScript:
 
 | Archivo | Qué hace |
 |---|---|
-| `sanitizacion.ts` | Limpia el texto de entrada. Su middleware `sanitizar` ya está puesto en `app.js` para todas las rutas |
+| `sanitizacion.ts` | Limpia el texto de entrada. Su middleware `sanitizar` ya está puesto en `app.ts` para todas las rutas |
 | `validacion.ts` | El middleware `validar(esquema)` y las reglas (`texto`, `entero`, `correo`...) |
 | `esquemas.ts` | Qué acepta cada ruta del contrato, ya armado |
 
@@ -18,7 +18,7 @@ express.json()  →  sanitizar  →  autenticar  →  validar(esquema)  →  con
                     cuerpo        token           de la ruta
 ```
 
-`sanitizar` es global (está en `app.js`). `validar` se pone en cada ruta, con su esquema.
+`sanitizar` es global (está en `app.ts`). `validar` se pone en cada ruta, con su esquema.
 
 ## Validación (`validar`)
 
@@ -131,7 +131,7 @@ Las pruebas encontraron que Prisma **no escapa los comodines de `LIKE`** (`%` y 
 | `tests/sanitizacion.test.ts` | Entradas maliciosas básicas: XSS (`<script>`, `<img onerror>`, `javascript:`, etiquetas anidadas), byte nulo, caracteres invisibles, prototype pollution, JSON muy anidado. Y que no estropea textos normales, acentos, emojis ni contraseñas |
 | `tests/validacion.test.ts` | Cada esquema del contrato: campos obligatorios, tipos equivocados, largos (con emojis), rangos de coordenadas, ids inválidos o enormes, filtros repetidos, campos de más (`nombre_rol`) |
 | `tests/sanitizacion.integracion.test.ts` | Contra la **BD real**: inyecciones SQL guardadas como texto, las tablas intactas, búsqueda con SQL y con comodines, y la revisión de `src/` |
-| `tests/app.test.js` | Que `app.js` pasa el cuerpo por `sanitizar` |
+| `tests/app.test.ts` | Que `app.ts` pasa el cuerpo por `sanitizar` |
 
 Las de BD real necesitan `docker compose up -d` con la BD migrada y sembrada; si no está, se saltan solas.
 

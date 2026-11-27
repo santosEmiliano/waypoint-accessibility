@@ -4,7 +4,7 @@ import request from 'supertest';
 // CORS_ORIGIN se lee al importar la app, por eso va antes del import.
 // El espacio después de la coma es a propósito: comprueba que se recorta.
 process.env.CORS_ORIGIN = 'http://localhost:8080, http://localhost:3001';
-const { default: app } = await import('../src/app.js');
+const { default: app } = await import('../src/app');
 
 describe('GET /health', () => {
   it('responde que el servidor está activo', async () => {

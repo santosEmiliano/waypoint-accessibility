@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "description": "API REST de Waypoint",
   "private": true,
-  "main": "src/server.js",
+  "main": "src/server.ts",
   "type": "module",
   "engines": {
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "tsx watch --env-file=../.env src/server.js",
-    "start": "tsx --env-file=../.env src/server.js",
+    "dev": "node --watch --env-file=../.env --import tsx src/server.ts",
+    "start": "node --env-file=../.env --import tsx src/server.ts",
     "test": "vitest run",
+    "typecheck": "tsc",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -30,6 +31,7 @@
     "redis": "^6.3.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.6",
