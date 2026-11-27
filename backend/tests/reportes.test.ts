@@ -164,6 +164,36 @@ describe("listarReportes y obtenerReporte", () => {
   });
 });
 
+describe("paginación del listado", () => {
+  const llamada = () => prisma.reporte.findMany.mock.calls[0][0];
+
+  beforeEach(() => {
+    prisma.reporte.findMany.mockResolvedValue([]);
+  });
+
+  it("sin página devuelve todos, por fecha de creación y con desempate por id", async () => {
+    await listarReportes();
+    expect(llamada().orderBy).toEqual([{ creacionReporte: "desc" }, { idReporte: "desc" }]);
+    expect(llamada()).not.toHaveProperty("take");
+    expect(llamada()).not.toHaveProperty("skip");
+  });
+
+  it("limite y desde se vuelven take y skip, junto con los filtros", async () => {
+    await listarReportes({ idUsuario: 5 }, { limite: 10, desde: 20 });
+    expect(llamada()).toMatchObject({ take: 10, skip: 20, where: { idUsuario: 5, canceladoReporte: false } });
+  });
+
+  it("desde 0 es la primera página", async () => {
+    await listarReportes({}, { limite: 10, desde: 0 });
+    expect(llamada()).toMatchObject({ take: 10, skip: 0 });
+  });
+
+  it("orden por actualización: los que cambiaron más recientemente primero, también con desempate", async () => {
+    await listarReportes({}, { orden: "actualizacion" });
+    expect(llamada().orderBy).toEqual([{ actualizacionReporte: "desc" }, { idReporte: "desc" }]);
+  });
+});
+
 describe("cancelarReporte", () => {
   it("cancela solo si es del usuario, está en Reportado y no estaba cancelado (todo en el WHERE)", async () => {
     prisma.reporte.updateMany.mockResolvedValue({ count: 1 });
