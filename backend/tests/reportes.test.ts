@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // $transaction ejecuta la función con el mismo objeto, como si fuera la transacción.
 const prisma = vi.hoisted(() => {
   const cliente: Record<string, unknown> = {
-    estado: { findUniqueOrThrow: vi.fn() },
+    estado: { findUniqueOrThrow: vi.fn(), findMany: vi.fn() },
     reporte: {
       create: vi.fn(),
       findMany: vi.fn(),
+      groupBy: vi.fn(),
       findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       updateMany: vi.fn(),
@@ -28,6 +29,7 @@ import {
   escaparLike,
   cambiarEstadoReporte,
   cancelarReporte,
+  contarReportesPorEstado,
   crearReporte,
   listarReportes,
   obtenerReporte,
@@ -191,6 +193,49 @@ describe("paginación del listado", () => {
   it("orden por actualización: los que cambiaron más recientemente primero, también con desempate", async () => {
     await listarReportes({}, { orden: "actualizacion" });
     expect(llamada().orderBy).toEqual([{ actualizacionReporte: "desc" }, { idReporte: "desc" }]);
+  });
+});
+
+describe("contarReportesPorEstado", () => {
+  const estados = [{ idEstado: 1 }, { idEstado: 2 }, { idEstado: 3 }, { idEstado: 4 }];
+
+  beforeEach(() => {
+    prisma.estado.findMany.mockResolvedValue(estados);
+  });
+
+  it("devuelve los 4 estados en orden, con 0 en los que no tienen reportes", async () => {
+    prisma.reporte.groupBy.mockResolvedValue([
+      { idEstado: 3, _count: { _all: 5 } },
+      { idEstado: 1, _count: { _all: 2 } },
+    ]);
+    expect(await contarReportesPorEstado()).toEqual([
+      { idEstado: 1, total: 2 },
+      { idEstado: 2, total: 0 },
+      { idEstado: 3, total: 5 },
+      { idEstado: 4, total: 0 },
+    ]);
+    expect(prisma.estado.findMany.mock.calls[0][0].orderBy).toEqual({ ordenEstado: "asc" });
+  });
+
+  it("agrupa por estado en una sola consulta, sin los cancelados y con los filtros del listado", async () => {
+    prisma.reporte.groupBy.mockResolvedValue([]);
+    await contarReportesPorEstado({ idUsuario: 5, idCategoria: 2, texto: "rampa" });
+    const consulta = prisma.reporte.groupBy.mock.calls[0][0];
+    expect(prisma.reporte.groupBy).toHaveBeenCalledTimes(1);
+    expect(consulta.by).toEqual(["idEstado"]);
+    expect(consulta.where).toMatchObject({ canceladoReporte: false, idUsuario: 5, idCategoria: 2 });
+    expect(consulta.where.OR).toHaveLength(3);
+  });
+
+  it("no acepta filtrar por estado ni contar cancelados aunque se los pasen", async () => {
+    prisma.reporte.groupBy.mockResolvedValue([]);
+    await contarReportesPorEstado({ idEstado: 2, cancelados: true } as never);
+    expect(prisma.reporte.groupBy.mock.calls[0][0].where).toEqual({ canceladoReporte: false });
+  });
+
+  it("sin reportes, los 4 estados en 0", async () => {
+    prisma.reporte.groupBy.mockResolvedValue([]);
+    expect((await contarReportesPorEstado()).map((e) => e.total)).toEqual([0, 0, 0, 0]);
   });
 });
 
