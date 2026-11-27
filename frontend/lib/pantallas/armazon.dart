@@ -27,9 +27,15 @@ class _EstadoArmazon extends State<Armazon> {
   // Posición de la sección que se está viendo.
   int _indice = 0;
 
-  Widget _pagina(Seccion seccion) {
+  Widget _pagina(Seccion seccion, List<Destino> destinos) {
     return switch (seccion) {
-      Seccion.inicio => const PantallaPrincipal(),
+      Seccion.inicio => PantallaPrincipal(
+        sesion: widget.sesion,
+        alVerReportes: () => setState(() {
+          _indice = destinos.indexWhere((d) => d.seccion == Seccion.reportes);
+        }),
+        alReportar: _abrirFormulario,
+      ),
       Seccion.reportes => const PantallaListado(),
       Seccion.bandeja => const PantallaAdministracion(),
       Seccion.perfil => PantallaPerfil(sesion: widget.sesion),
@@ -38,10 +44,14 @@ class _EstadoArmazon extends State<Armazon> {
     };
   }
 
+  void _abrirFormulario() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const PantallaFormulario()));
+  }
+
   void _elegir(Destino destino, int indice) {
     if (destino.esAccion) {
-      Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => const PantallaFormulario()));
+      _abrirFormulario();
       return;
     }
     setState(() => _indice = indice);
@@ -57,7 +67,7 @@ class _EstadoArmazon extends State<Armazon> {
     // IndexedStack deja cada sección cargada al cambiar de una a otra.
     final contenido = IndexedStack(
       index: _indice,
-      children: [for (final d in destinos) _pagina(d.seccion)],
+      children: [for (final d in destinos) _pagina(d.seccion, destinos)],
     );
 
     return LayoutBuilder(
@@ -77,10 +87,19 @@ class _EstadoArmazon extends State<Armazon> {
           );
         }
 
+        // El dock flota encima de las páginas. Se suma su alto al margen de
+        // abajo para que el SafeArea de cada página no deje nada tapado.
+        final medios = MediaQuery.of(context);
+        final abajo = medios.padding.bottom < 16 ? 16.0 : medios.padding.bottom;
         return Scaffold(
           body: Stack(
             children: [
-              contenido,
+              MediaQuery(
+                data: medios.copyWith(
+                  padding: medios.padding.copyWith(bottom: abajo + 70),
+                ),
+                child: contenido,
+              ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: SafeArea(

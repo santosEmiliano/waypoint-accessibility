@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../tema/colores_waypoint.dart';
 
-/// Una parada del mapa: el nombre del estado y cuántos reportes hay en él.
+/// Una parada del mapa, el nombre del estado y cuántos reportes hay en él.
 typedef Parada = ({String nombre, int cantidad});
 
-/// Las paradas del recorrido en una línea, con el número de reportes arriba
-/// de cada una. La última (Resuelto) va rellena porque es el destino.
+/// Las paradas del recorrido estan en una línea, con el número de reportes arriba
+/// de cada una. La última (estado "Resuelto") va rellena porque es el destino.
 class MapaParadas extends StatelessWidget {
   const MapaParadas({super.key, required this.paradas, this.alTocar});
 
