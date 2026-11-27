@@ -12,6 +12,7 @@ class MarcaWaypoint extends StatefulWidget {
     this.colorPuntos,
     this.colorBorde,
     this.respira = false,
+    this.pulso = 0,
   });
 
   final double tamano;
@@ -25,12 +26,16 @@ class MarcaWaypoint extends StatefulWidget {
   /// Anima el punto amarillo.
   final bool respira;
 
+  /// Cada vez que este número cambia, del punto amarillo sale un anillo que
+  /// se expande y se desvanece.
+  final int pulso;
+
   @override
   State<MarcaWaypoint> createState() => _EstadoMarcaWaypoint();
 }
 
 class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controlador = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1000),
@@ -38,6 +43,10 @@ class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
   late final Animation<double> _respiracion = CurvedAnimation(
     parent: _controlador,
     curve: Curves.easeInOut,
+  );
+  late final AnimationController _onda = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
   );
 
   @override
@@ -50,6 +59,10 @@ class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
   void didUpdateWidget(MarcaWaypoint anterior) {
     super.didUpdateWidget(anterior);
     _actualizarAnimacion();
+    if (widget.pulso != anterior.pulso &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _onda.forward(from: 0);
+    }
   }
 
   void _actualizarAnimacion() {
@@ -65,6 +78,7 @@ class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
   @override
   void dispose() {
     _controlador.dispose();
+    _onda.dispose();
     super.dispose();
   }
 
@@ -81,6 +95,7 @@ class _EstadoMarcaWaypoint extends State<MarcaWaypoint>
           colorGuia: c.guia,
           colorBorde: widget.colorBorde ?? c.sobreGuia,
           respiracion: _respiracion,
+          onda: _onda,
         ),
       ),
     );
@@ -93,9 +108,11 @@ class _PintorMarca extends CustomPainter {
     required this.colorGuia,
     required this.colorBorde,
     required this.respiracion,
-  }) : super(repaint: respiracion);
+    required this.onda,
+  }) : super(repaint: Listenable.merge([respiracion, onda]));
 
   final Animation<double> respiracion;
+  final Animation<double> onda;
   final Color colorPuntos;
   final Color colorGuia;
   final Color colorBorde;
@@ -130,6 +147,23 @@ class _PintorMarca extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5 * escala * latido,
     );
+
+    // Anillo que sale del punto, empieza un poco después y crece hasta 3 veces.
+    final avance = const Interval(
+      0.35,
+      1,
+      curve: Curves.easeOut,
+    ).transform(onda.value);
+    if (avance > 0 && avance < 1) {
+      canvas.drawCircle(
+        centro,
+        15 * escala * (1 + 2 * avance),
+        Paint()
+          ..color = colorGuia.withValues(alpha: 0.9 * (1 - avance))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3 * escala,
+      );
+    }
   }
 
   @override
