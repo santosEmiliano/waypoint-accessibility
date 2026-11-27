@@ -12,7 +12,10 @@ if (!urlBd) {
   throw new Error("Falta DATABASE_URL en el .env");
 }
 
-const HOSTS_LOCALES = ["127.0.0.1", "localhost", "[::1]"];
+// Hosts donde la contraseña no sale del servidor: esta computadora, o el servicio `mysql` de
+// docker compose, al que solo se llega por la red interna de Docker (el backend desplegado en el
+// mismo servidor, ver docs/despliegue-bd.md).
+const HOSTS_LOCALES = ["127.0.0.1", "localhost", "[::1]", "mysql"];
 
 // Separa DATABASE_URL en las opciones que pide el adaptador de MySQL.
 export function opcionesAdaptador(urlTexto: string) {
@@ -25,8 +28,8 @@ export function opcionesAdaptador(urlTexto: string) {
     database: url.pathname.slice(1),
     connectionLimit: 5,
     // MySQL 8 pide un intercambio de llave RSA y el adaptador lo rechaza sin esto.
-    // Solo se permite contra la BD local: con una BD remota se expondría la contraseña
-    // a un intermediario, así que allá hay que conectarse con TLS.
+    // Solo se permite contra la BD local (HOSTS_LOCALES): con una BD remota se expondría la
+    // contraseña a un intermediario, así que allá hay que conectarse con TLS.
     allowPublicKeyRetrieval: HOSTS_LOCALES.includes(url.hostname),
   };
 }

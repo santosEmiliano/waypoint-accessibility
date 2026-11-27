@@ -21,7 +21,7 @@ const prisma = vi.hoisted(() => {
 vi.mock("../src/db/prisma", () => ({ prisma }));
 
 import { listarCategorias, listarEstados } from "../src/db/categorias";
-import { listarHistorial } from "../src/db/historial";
+import { consultarHistorial, listarHistorial } from "../src/db/historial";
 import {
   armarFiltros,
   asignarReporte,
@@ -270,6 +270,39 @@ describe("catálogos e historial", () => {
     await listarHistorial(7);
     const llamada = prisma.historial.findMany.mock.calls[0][0];
     expect(llamada.where).toEqual({ idReporte: 7 });
-    expect(llamada.orderBy[0]).toEqual({ creacionHistorial: "asc" });
+    expect(llamada.orderBy).toEqual([{ creacionHistorial: "asc" }, { idHistorial: "asc" }]);
+  });
+
+  it("cada fila del historial trae a quien hizo el movimiento (id y nombre, sin correo)", async () => {
+    prisma.historial.findMany.mockResolvedValue([]);
+    await listarHistorial(7);
+    const select = prisma.historial.findMany.mock.calls[0][0].select;
+    expect(select.usuario).toEqual({ select: { idUsuario: true, nombreUsuario: true } });
+    expect(select.estadoAnterior).toBeDefined();
+    expect(select.estadoNuevo).toBeDefined();
+  });
+});
+
+describe("consultarHistorial", () => {
+  it("un usuario solo ve el historial de sus reportes", async () => {
+    prisma.reporte.findFirst.mockResolvedValue({ idReporte: 7 });
+    prisma.historial.findMany.mockResolvedValue([{ idHistorial: 1 }]);
+    const historial = await consultarHistorial(7, { idUsuario: 5 });
+
+    expect(prisma.reporte.findFirst.mock.calls[0][0].where).toEqual({ idReporte: 7, idUsuario: 5 });
+    expect(historial).toEqual([{ idHistorial: 1 }]);
+  });
+
+  it("el reporte de otro usuario responde null, igual que uno que no existe, y no lee el historial", async () => {
+    prisma.reporte.findFirst.mockResolvedValue(null);
+    expect(await consultarHistorial(7, { idUsuario: 99 })).toBeNull();
+    expect(prisma.historial.findMany).not.toHaveBeenCalled();
+  });
+
+  it("sin idUsuario (el operador) busca entre todos los reportes", async () => {
+    prisma.reporte.findFirst.mockResolvedValue({ idReporte: 7 });
+    prisma.historial.findMany.mockResolvedValue([]);
+    expect(await consultarHistorial(7)).toEqual([]);
+    expect(prisma.reporte.findFirst.mock.calls[0][0].where).toEqual({ idReporte: 7 });
   });
 });

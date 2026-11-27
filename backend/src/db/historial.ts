@@ -51,12 +51,32 @@ const seleccionHistorial = {
   usuario: { select: { idUsuario: true, nombreUsuario: true } },
 } as const;
 
-// Línea de tiempo de un reporte, de lo más antiguo a lo más reciente.
-// No revisa de quién es el reporte: eso lo decide la API con obtenerReporte.
-export async function listarHistorial(idReporte: number) {
+export type FilaHistorial = Prisma.HistorialGetPayload<{ select: typeof seleccionHistorial }>;
+
+// Línea de tiempo de un reporte, de lo más antiguo a lo más reciente, con quien hizo cada movimiento.
+// La fecha se guarda sin milisegundos: dos movimientos del mismo segundo se ordenan por su id,
+// que es el orden en que se escribieron.
+// No revisa de quién es el reporte: para eso está consultarHistorial.
+export async function listarHistorial(idReporte: number): Promise<FilaHistorial[]> {
   return prisma.historial.findMany({
     where: { idReporte },
     select: seleccionHistorial,
     orderBy: [{ creacionHistorial: "asc" }, { idHistorial: "asc" }],
   });
+}
+
+// Para GET /reportes/:id/historial: revisa que el reporte se pueda ver y devuelve su línea de tiempo.
+// Con idUsuario (quien consulta es un `usuario`) solo responde si el reporte es suyo; si es de otro
+// o no existe devuelve null, para que la API responda 404 sin revelar que existe.
+// Sin idUsuario (el operador) busca entre todos los reportes.
+export async function consultarHistorial(
+  idReporte: number,
+  { idUsuario }: { idUsuario?: number } = {},
+): Promise<FilaHistorial[] | null> {
+  const reporte = await prisma.reporte.findFirst({
+    where: { idReporte, ...(idUsuario !== undefined && { idUsuario }) },
+    select: { idReporte: true },
+  });
+  if (!reporte) return null;
+  return listarHistorial(idReporte);
 }
