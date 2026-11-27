@@ -7,6 +7,15 @@ import '../modelos/movimiento.dart';
 import '../modelos/reporte.dart';
 import '../modelos/usuario.dart';
 
+/// Cómo se ordenan los reportes, siempre del más nuevo al más viejo.
+enum OrdenReportes {
+  /// Por la fecha en que se crearon.
+  creacion,
+
+  /// Por la fecha de su último cambio.
+  actualizacion,
+}
+
 /// Lo que devuelven el registro y el inicio de sesión.
 class Acceso {
   final Usuario usuario;
@@ -46,12 +55,23 @@ abstract class RepositorioWaypoint {
   });
 
   /// En este endpoint el usuario recibe solo los suyos y el operador recibe todos.
+  ///
+  /// Los datos vienen por páginas, [limite] dice cuántos traer y [desde] cuántos saltarse.
+  /// Sin [limite] trae todos los que cumplan los filtros.
   Future<List<Reporte>> listarReportes({
     int? idEstado,
     int? idCategoria,
     String? texto,
     bool cancelados = false,
+    int? limite,
+    int desde = 0,
+    OrdenReportes orden = OrdenReportes.creacion,
   });
+
+  /// Cuántos reportes hay en cada estado (clave: id del estado), con los
+  /// mismos filtros que [listarReportes]. Sirve para mostrar los conteos sin
+  /// traer todos los reportes. Los estados sin reportes vienen en 0.
+  Future<Map<int, int>> resumenReportes({int? idCategoria, String? texto});
 
   Future<Reporte> obtenerReporte(int id);
 

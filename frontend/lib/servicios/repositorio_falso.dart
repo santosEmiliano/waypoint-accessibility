@@ -308,18 +308,17 @@ class RepositorioFalso implements RepositorioWaypoint {
     return reporte;
   }
 
-  @override
-  Future<List<Reporte>> listarReportes({
+  // Los reportes que la sesión puede ver y que cumplen los filtros.
+  Iterable<Reporte> _filtrar({
     int? idEstado,
     int? idCategoria,
     String? texto,
     bool cancelados = false,
-  }) async {
-    await _espera();
+  }) {
     final usuario = _sesion();
     final buscado = texto?.trim().toLowerCase() ?? '';
 
-    final lista = _reportes.where((r) {
+    return _reportes.where((r) {
       if (!usuario.esOperador && r.usuario.id != usuario.id) return false;
       if (r.cancelado != cancelados) return false;
       if (idEstado != null && r.estado.id != idEstado) return false;
@@ -328,11 +327,50 @@ class RepositorioFalso implements RepositorioWaypoint {
       return r.titulo.toLowerCase().contains(buscado) ||
           r.descripcion.toLowerCase().contains(buscado) ||
           r.ubicacion.toLowerCase().contains(buscado);
-    }).toList();
+    });
+  }
 
-    // Los más recientes primero.
-    lista.sort((a, b) => b.creacion.compareTo(a.creacion));
-    return lista;
+  @override
+  Future<List<Reporte>> listarReportes({
+    int? idEstado,
+    int? idCategoria,
+    String? texto,
+    bool cancelados = false,
+    int? limite,
+    int desde = 0,
+    OrdenReportes orden = OrdenReportes.creacion,
+  }) async {
+    await _espera();
+    final lista = _filtrar(
+      idEstado: idEstado,
+      idCategoria: idCategoria,
+      texto: texto,
+      cancelados: cancelados,
+    ).toList();
+
+    // Los más recientes primero; si empatan, el de id mayor (como la API).
+    DateTime fecha(Reporte r) =>
+        orden == OrdenReportes.creacion ? r.creacion : r.actualizacion;
+    lista.sort((a, b) {
+      final porFecha = fecha(b).compareTo(fecha(a));
+      return porFecha != 0 ? porFecha : b.id.compareTo(a.id);
+    });
+
+    final pagina = lista.skip(desde);
+    return (limite == null ? pagina : pagina.take(limite)).toList();
+  }
+
+  @override
+  Future<Map<int, int>> resumenReportes({
+    int? idCategoria,
+    String? texto,
+  }) async {
+    await _espera();
+    final conteo = {for (final e in DatosEjemplo.estados) e.id: 0};
+    for (final r in _filtrar(idCategoria: idCategoria, texto: texto)) {
+      conteo[r.estado.id] = conteo[r.estado.id]! + 1;
+    }
+    return conteo;
   }
 
   @override

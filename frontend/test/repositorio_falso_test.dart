@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:waypoint/servicios/error_api.dart';
 import 'package:waypoint/servicios/repositorio_falso.dart';
+import 'package:waypoint/servicios/repositorio_waypoint.dart';
 
 // Comprueba que el error tenga el código esperado.
 Future<void> debeFallarCon(Future<dynamic> accion, String codigo) {
@@ -73,6 +74,46 @@ void main() {
         expect((await repo.listarReportes()).length, 4);
       },
     );
+
+    test('el listado viene por páginas sin repetir reportes', () async {
+      for (var i = 0; i < 4; i++) {
+        await repo.crearReporte(
+          titulo: 'Reporte $i',
+          descripcion: 'Algo',
+          idCategoria: 1,
+          ubicacion: 'Edificio 5',
+        );
+      }
+      final primera = await repo.listarReportes(limite: 4);
+      final segunda = await repo.listarReportes(limite: 4, desde: 4);
+      expect(primera.length, 4);
+      expect(segunda.length, 3);
+      final ids = {...primera.map((r) => r.id), ...segunda.map((r) => r.id)};
+      expect(ids.length, 7);
+    });
+
+    test('se puede ordenar por el último cambio', () async {
+      final lista = await repo.listarReportes(
+        orden: OrdenReportes.actualizacion,
+      );
+      for (var i = 1; i < lista.length; i++) {
+        expect(
+          lista[i - 1].actualizacion.isBefore(lista[i].actualizacion),
+          isFalse,
+        );
+      }
+    });
+
+    test('el resumen cuenta por estado sin los cancelados', () async {
+      // Ana: uno Reportado, uno En análisis, uno Resuelto y uno cancelado.
+      expect(await repo.resumenReportes(), {1: 1, 2: 1, 3: 0, 4: 1});
+      expect(await repo.resumenReportes(texto: 'elevador'), {
+        1: 1,
+        2: 0,
+        3: 0,
+        4: 0,
+      });
+    });
 
     test('un reporte sin título se rechaza', () async {
       await debeFallarCon(
