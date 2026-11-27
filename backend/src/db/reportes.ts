@@ -86,6 +86,13 @@ export type FiltrosReportes = {
   cancelados?: boolean;
 };
 
+// Prisma convierte `contains` en un LIKE '%texto%' pero no escapa los comodines del texto: sin esto,
+// buscar "%" devolvería todos los reportes y "_" cualquier carácter. Se escapa primero la diagonal
+// invertida, que es el carácter de escape de LIKE en MySQL.
+export function escaparLike(texto: string): string {
+  return texto.replace(/[\\%_]/g, (caracter) => `\\${caracter}`);
+}
+
 // Arma el WHERE. Cada filtro que se manda se suma a los demás (AND), así que son combinables.
 export function armarFiltros(filtros: FiltrosReportes): Prisma.ReporteWhereInput {
   const where: Prisma.ReporteWhereInput = { canceladoReporte: filtros.cancelados === true };
@@ -94,10 +101,11 @@ export function armarFiltros(filtros: FiltrosReportes): Prisma.ReporteWhereInput
   if (filtros.idCategoria !== undefined) where.idCategoria = filtros.idCategoria;
   const texto = filtros.texto?.trim();
   if (texto) {
+    const patron = escaparLike(texto);
     where.OR = [
-      { tituloReporte: { contains: texto } },
-      { descripcionReporte: { contains: texto } },
-      { ubicacionReporte: { contains: texto } },
+      { tituloReporte: { contains: patron } },
+      { descripcionReporte: { contains: patron } },
+      { ubicacionReporte: { contains: patron } },
     ];
   }
   return where;

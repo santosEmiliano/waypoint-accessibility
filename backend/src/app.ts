@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
+import { sanitizar } from './middlewares/sanitizacion';
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '20kb' }));
+// Limpia el texto del cuerpo antes de que llegue a las rutas (#35)
+app.use(sanitizar);
 
 app.get('/health', (req, res) => {
   res.json({ estado: 'ok' });

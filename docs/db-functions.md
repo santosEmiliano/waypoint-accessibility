@@ -110,7 +110,7 @@ Todos los filtros son opcionales y **se combinan** (se cumplen todos a la vez).
 | `idUsuario` | Solo los reportes de ese usuario. Sin él devuelve los de todos: la API lo manda cuando quien consulta es un `usuario`, y no lo manda para el `operador` |
 | `idEstado` | Solo los de ese estado |
 | `idCategoria` | Solo los de esa categoría |
-| `texto` | Los que lo tengan en el título, la descripción o la ubicación. No distingue mayúsculas ni acentos (lo decide la colación de MySQL). Un texto vacío no filtra |
+| `texto` | Los que lo tengan en el título, la descripción o la ubicación. No distingue mayúsculas ni acentos (lo decide la colación de MySQL). Un texto vacío no filtra. `%`, `_` y `\` se buscan como texto, no como comodines (`escaparLike`) |
 | `cancelados` | Con `true` devuelve **solo** los cancelados. Sin él, los cancelados no aparecen |
 
 - **Retorna:** `Reporte[]`, los más recientes primero. Sin resultados devuelve `[]`.
