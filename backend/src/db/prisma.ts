@@ -27,6 +27,10 @@ export function opcionesAdaptador(urlTexto: string) {
     password: decodeURIComponent(url.password),
     database: url.pathname.slice(1),
     connectionLimit: 5,
+    // Cuánto espera una consulta por una conexión libre. Con el valor por defecto (10 s) y el
+    // reintento de Prisma, si la BD se cae cada petición tarda unos 20 s en fallar; con 3 s, unos 6 s
+    // (medido en tests/bd-caida.test.ts). Con 5 conexiones y consultas cortas sobra para la carga normal.
+    acquireTimeout: 3000,
     // MySQL 8 pide un intercambio de llave RSA y el adaptador lo rechaza sin esto.
     // Solo se permite contra la BD local (HOSTS_LOCALES): con una BD remota se expondría la
     // contraseña a un intermediario, así que allá hay que conectarse con TLS.
