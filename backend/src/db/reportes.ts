@@ -137,6 +137,29 @@ export async function listarReportes(filtros: FiltrosReportes = {}, pagina: Pagi
   });
 }
 
+export type ConteoPorEstado = { idEstado: number; total: number };
+
+// Cuántos reportes no cancelados hay en cada estado, con los mismos filtros que listarReportes:
+// con idUsuario solo cuenta los de ese usuario (el operador no lo manda y cuenta todos).
+// Devuelve los 4 estados en su orden, aunque alguno tenga 0. El estado y los cancelados no se
+// aceptan como filtro: el resumen es justo el conteo por estado de los que siguen activos.
+export async function contarReportesPorEstado(
+  filtros: Pick<FiltrosReportes, "idUsuario" | "idCategoria" | "texto"> = {},
+): Promise<ConteoPorEstado[]> {
+  const { idUsuario, idCategoria, texto } = filtros;
+  const [estados, grupos] = await Promise.all([
+    prisma.estado.findMany({ select: { idEstado: true }, orderBy: { ordenEstado: "asc" } }),
+    // Una sola consulta: SELECT id_estado, COUNT(*) ... GROUP BY id_estado
+    prisma.reporte.groupBy({
+      by: ["idEstado"],
+      where: armarFiltros({ idUsuario, idCategoria, texto }),
+      _count: { _all: true },
+    }),
+  ]);
+  const totales = new Map(grupos.map((grupo) => [grupo.idEstado, grupo._count._all]));
+  return estados.map(({ idEstado }) => ({ idEstado, total: totales.get(idEstado) ?? 0 }));
+}
+
 // Detalle de un reporte, cancelado o no. Si se pasa idUsuario solo lo devuelve cuando es suyo:
 // el reporte de otro usuario responde null, igual que uno que no existe (la API responde 404).
 export async function obtenerReporte(idReporte: number, opciones: { idUsuario?: number } = {}): Promise<Reporte | null> {
