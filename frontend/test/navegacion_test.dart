@@ -66,7 +66,7 @@ void main() {
     await tester.tap(find.text('Reportes'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Listado de reportes'), findsOneWidget);
+    expect(find.text('Mis reportes'), findsOneWidget);
   });
 
   testWidgets('Nuevo abre el formulario y se puede volver', (tester) async {
@@ -88,7 +88,7 @@ void main() {
 
     await tester.tap(find.text('Reportes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ver un reporte de ejemplo'));
+    await tester.tap(find.text('Elevador del edificio 3 sin servicio'));
     await tester.pumpAndSettle();
 
     expect(find.text('Detalle del reporte'), findsOneWidget);

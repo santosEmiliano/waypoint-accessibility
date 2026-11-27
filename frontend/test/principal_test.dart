@@ -4,39 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:waypoint/aplicacion.dart';
 import 'package:waypoint/modelos/reporte.dart';
 import 'package:waypoint/servicios/datos_ejemplo.dart';
-import 'package:waypoint/servicios/error_api.dart';
 import 'package:waypoint/servicios/repositorio_falso.dart';
 import 'package:waypoint/servicios/sesion.dart';
 import 'package:waypoint/utilidades/fechas.dart';
 
-// Repositorio falso que puede devolver la lista vacía o fallar una vez.
-class _RepositorioPrueba extends RepositorioFalso {
-  _RepositorioPrueba({this.vacio = false, this.fallas = 0})
-    : super(retraso: Duration.zero);
-
-  final bool vacio;
-  int fallas;
-
-  @override
-  Future<List<Reporte>> listarReportes({
-    int? idEstado,
-    int? idCategoria,
-    String? texto,
-    bool cancelados = false,
-  }) async {
-    if (fallas > 0) {
-      fallas--;
-      throw const ErrorApi.sinConexion();
-    }
-    if (vacio) return [];
-    return super.listarReportes(
-      idEstado: idEstado,
-      idCategoria: idCategoria,
-      texto: texto,
-      cancelados: cancelados,
-    );
-  }
-}
+import 'ayudas/repositorio_prueba.dart';
 
 void main() {
   // Abre la app en un teléfono y entra como Ana.
@@ -131,13 +103,16 @@ void main() {
     expect(anuncio(reportes[2]), contains('Parada 4 de 4'));
   });
 
-  testWidgets('tocar una parada lleva a Reportes', (tester) async {
+  testWidgets('tocar una parada abre el listado filtrado por ella', (
+    tester,
+  ) async {
     await entrarComoAna(tester);
 
-    await tester.tap(find.bySemanticsLabel('Reportado: 1 reporte'));
+    await tester.tap(find.bySemanticsLabel('En análisis: 1 reporte'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Listado de reportes'), findsOneWidget);
+    expect(find.text('Mis reportes'), findsOneWidget);
+    expect(find.text('Parada: En análisis'), findsOneWidget);
   });
 
   testWidgets('el botón de reportar abre el formulario', (tester) async {
@@ -159,7 +134,7 @@ void main() {
   });
 
   testWidgets('sin reportes invita a reportar el primero', (tester) async {
-    await entrarComoAna(tester, repositorio: _RepositorioPrueba(vacio: true));
+    await entrarComoAna(tester, repositorio: RepositorioPrueba(vacio: true));
 
     expect(find.text('Aún no tienes reportes'), findsOneWidget);
     expect(find.text('Lo último'), findsNothing);
@@ -167,7 +142,7 @@ void main() {
   });
 
   testWidgets('si falla la carga se puede reintentar', (tester) async {
-    await entrarComoAna(tester, repositorio: _RepositorioPrueba(fallas: 1));
+    await entrarComoAna(tester, repositorio: RepositorioPrueba(fallas: 1));
 
     expect(find.text('No se pudo conectar con el servidor'), findsOneWidget);
 
@@ -175,6 +150,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('2 reportes siguen en camino'), findsOneWidget);
+  });
+
+  testWidgets('no pide la lista completa de reportes', (tester) async {
+    final repositorio = RepositorioPrueba();
+    await entrarComoAna(tester, repositorio: repositorio);
+
+    expect(repositorio.pedidos, isNotEmpty);
+    // Nadie pide la lista completa, el Inicio pide 3 y el listado pide de 10 en 10.
+    expect(repositorio.pedidos.every((p) => p.limite != null), isTrue);
   });
 
   group('fechaCorta', () {
