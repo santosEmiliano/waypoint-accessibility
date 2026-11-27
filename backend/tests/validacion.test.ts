@@ -18,6 +18,7 @@ function crearApp() {
   app.put("/auth/usuario", validar(esquemas.actualizarUsuario), eco);
   app.post("/reportes", validar(esquemas.crearReporte), eco);
   app.get("/reportes", validar(esquemas.listarReportes), eco);
+  app.get("/reportes/resumen", validar(esquemas.resumenReportes), eco);
   app.get("/reportes/:id", validar(esquemas.idReporte), eco);
   app.put("/reportes/:id", validar(esquemas.editarReporte), eco);
   app.patch("/reportes/:id/cancelar", validar(esquemas.cancelarReporte), eco);
@@ -308,6 +309,70 @@ describe("GET /reportes (query)", () => {
     [`q=${"a".repeat(101)}`, "q"],
   ])("rechaza ?%s", async (query, campo) => {
     const res = await request(app).get(`/reportes?${query}`);
+    expect(res.status).toBe(400);
+    expect(res.body.error.campos).toHaveProperty(campo);
+  });
+});
+
+describe("GET /reportes: paginación y orden", () => {
+  it("convierte limite y desde a número y acepta los dos órdenes", async () => {
+    const res = await request(app).get("/reportes?limite=10&desde=20&orden=actualizacion");
+    expect(res.body.validado.query).toEqual({ limite: 10, desde: 20, orden: "actualizacion" });
+    const porCreacion = await request(app).get("/reportes?orden=creacion");
+    expect(porCreacion.body.validado.query).toEqual({ orden: "creacion" });
+  });
+
+  it("desde=0 es válido: es la primera página", async () => {
+    const res = await request(app).get("/reportes?limite=10&desde=0");
+    expect(res.status).toBe(200);
+    expect(res.body.validado.query).toEqual({ limite: 10, desde: 0 });
+  });
+
+  it("sin limite, desde ni orden no se agregan (la función usa sus valores por defecto)", async () => {
+    const res = await request(app).get("/reportes?limite=&orden=");
+    expect(res.status).toBe(200);
+    expect(res.body.validado.query).toEqual({});
+  });
+
+  it.each([
+    ["limite=0", "limite"],
+    ["limite=101", "limite"],
+    ["limite=-5", "limite"],
+    ["limite=diez", "limite"],
+    ["desde=-1", "desde"],
+    ["desde=1.5", "desde"],
+    ["orden=fecha", "orden"],
+    ["orden=CREACION", "orden"],
+    ["orden=creacion&orden=actualizacion", "orden"],
+  ])("rechaza ?%s", async (query, campo) => {
+    const res = await request(app).get(`/reportes?${query}`);
+    expect(res.status).toBe(400);
+    expect(res.body.error.campos).toHaveProperty(campo);
+  });
+
+  it("el error del orden dice qué valores acepta", async () => {
+    const res = await request(app).get("/reportes?orden=fecha");
+    expect(res.body.error.campos.orden).toBe("Debe ser uno de: creacion, actualizacion");
+  });
+});
+
+describe("GET /reportes/resumen (query)", () => {
+  it("acepta la categoría y el texto, limpios", async () => {
+    const res = await request(app).get("/reportes/resumen?id_categoria=2&q=%20rampa%20");
+    expect(res.body.validado.query).toEqual({ id_categoria: 2, q: "rampa" });
+  });
+
+  it("ignora el estado, los cancelados y la paginación: no aplican al resumen", async () => {
+    const res = await request(app).get("/reportes/resumen?id_estado=2&cancelados=true&limite=5");
+    expect(res.status).toBe(200);
+    expect(res.body.validado.query).toEqual({});
+  });
+
+  it.each([
+    ["id_categoria=abc", "id_categoria"],
+    [`q=${"a".repeat(101)}`, "q"],
+  ])("rechaza ?%s", async (query, campo) => {
+    const res = await request(app).get(`/reportes/resumen?${query}`);
     expect(res.status).toBe(400);
     expect(res.body.error.campos).toHaveProperty(campo);
   });
