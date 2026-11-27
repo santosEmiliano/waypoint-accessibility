@@ -111,12 +111,29 @@ export function armarFiltros(filtros: FiltrosReportes): Prisma.ReporteWhereInput
   return where;
 }
 
-// Lista los reportes que cumplan todos los filtros, los más recientes primero.
-export async function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]> {
+// `creacion`: los creados más recientemente primero. `actualizacion`: los que cambiaron más recientemente primero.
+export type OrdenReportes = "creacion" | "actualizacion";
+
+export type PaginaReportes = {
+  // Cuántos devolver. Sin él, todos
+  limite?: number;
+  // Cuántos saltarse desde el inicio (para pedir la siguiente página: desde = página * limite)
+  desde?: number;
+  // Por defecto `creacion`
+  orden?: OrdenReportes;
+};
+
+// Lista los reportes que cumplan todos los filtros, del más nuevo al más viejo según `orden`.
+// El desempate por id hace que el orden sea siempre el mismo: sin él, dos reportes con la misma
+// fecha podrían cambiar de lugar entre una página y otra, y uno se repetiría o se saltaría.
+export async function listarReportes(filtros: FiltrosReportes = {}, pagina: PaginaReportes = {}): Promise<Reporte[]> {
+  const campoFecha = pagina.orden === "actualizacion" ? "actualizacionReporte" : "creacionReporte";
   return prisma.reporte.findMany({
     where: armarFiltros(filtros),
     select: seleccionReporte,
-    orderBy: [{ creacionReporte: "desc" }, { idReporte: "desc" }],
+    orderBy: [{ [campoFecha]: "desc" }, { idReporte: "desc" }],
+    ...(pagina.limite !== undefined && { take: pagina.limite }),
+    ...(pagina.desde !== undefined && { skip: pagina.desde }),
   });
 }
 
