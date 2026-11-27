@@ -6,23 +6,35 @@ import { createClient, type RedisClientType } from "redis";
 
 config({ path: fileURLToPath(new URL("../../.env", import.meta.url)), quiet: true });
 
-let cliente: RedisClientType | undefined;
+// Se guarda la promesa de la conexión, no el cliente: si llegan varias peticiones mientras se
+// conecta, todas esperan la misma conexión en vez de abrir un cliente cada una.
+let conexion: Promise<RedisClientType> | undefined;
 
-export async function obtenerRedis(): Promise<RedisClientType> {
-  if (!cliente) {
-    const url = process.env.REDIS_URL;
-    if (!url) throw new Error("Falta REDIS_URL en el .env");
-    const nuevo = createClient({ url }) as RedisClientType;
-    nuevo.on("error", (error) => console.error("Error de Redis:", error.message));
-    await nuevo.connect();
-    cliente = nuevo;
+async function conectar(): Promise<RedisClientType> {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error("Falta REDIS_URL en el .env");
+  const nuevo = createClient({ url }) as RedisClientType;
+  nuevo.on("error", (error) => console.error("Error de Redis:", error.message));
+  await nuevo.connect();
+  return nuevo;
+}
+
+export function obtenerRedis(): Promise<RedisClientType> {
+  if (!conexion) {
+    conexion = conectar().catch((error) => {
+      // Si no se pudo conectar, la siguiente petición lo vuelve a intentar
+      conexion = undefined;
+      throw error;
+    });
   }
-  return cliente;
+  return conexion;
 }
 
 export async function cerrarRedis(): Promise<void> {
-  if (cliente) {
-    await cliente.quit();
-    cliente = undefined;
+  const pendiente = conexion;
+  conexion = undefined;
+  if (pendiente) {
+    const cliente = await pendiente.catch(() => undefined);
+    await cliente?.quit();
   }
 }
