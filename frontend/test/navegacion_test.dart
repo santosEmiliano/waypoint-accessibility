@@ -79,7 +79,7 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Principal'), findsOneWidget);
+    expect(find.text('Lo último'), findsOneWidget);
   });
 
   testWidgets('desde el listado se llega al detalle', (tester) async {
