@@ -102,7 +102,18 @@ export function booleano(): Regla {
   };
 }
 
-const PATRON_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Uno de los valores de la lista, escrito igual (por ejemplo, el orden del listado)
+export function unoDe(valores: readonly string[]): Regla {
+  return (valor) => {
+    if (vacio(valor)) return mal(MENSAJES.obligatorio);
+    if (typeof valor !== "string" || !valores.includes(valor.trim())) {
+      return mal(`Debe ser uno de: ${valores.join(", ")}`);
+    }
+    return bien(valor.trim());
+  };
+}
+
+const PATRON_CORREO =/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Correo con formato válido. Se guarda en minúsculas (lo hace también normalizarCorreo en la BD)
 export function correo({ max }: { max: number }): Regla {
