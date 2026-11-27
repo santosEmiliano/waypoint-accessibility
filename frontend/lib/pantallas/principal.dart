@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../componentes/estados_carga.dart';
 import '../componentes/mapa_paradas.dart';
 import '../componentes/marca_waypoint.dart';
 import '../componentes/nombre_waypoint.dart';
 import '../componentes/ruta_paradas.dart';
 import '../modelos/estado.dart';
 import '../modelos/reporte.dart';
-import '../servicios/error_api.dart';
+import '../servicios/repositorio_waypoint.dart';
 import '../servicios/sesion.dart';
 import '../tema/colores_waypoint.dart';
 import '../utilidades/fechas.dart';
@@ -18,14 +19,14 @@ class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({
     super.key,
     required this.sesion,
-    this.alVerReportes,
+    this.alVerParada,
     this.alReportar,
   });
 
   final Sesion sesion;
 
-  /// Lleva a la pestaña de Reportes.
-  final VoidCallback? alVerReportes;
+  /// Lleva al listado filtrado por la parada tocada (recibe el id del estado).
+  final ValueChanged<int>? alVerParada;
 
   /// Abre el formulario de un reporte nuevo.
   final VoidCallback? alReportar;
@@ -36,27 +37,26 @@ class PantallaPrincipal extends StatefulWidget {
 
 // Lo que la pantalla necesita del servidor.
 class _Resumen {
-  _Resumen(List<Estado> estados, this.reportes)
+  _Resumen(List<Estado> estados, this.conteos, this.recientes)
     : estados = [...estados]..sort((a, b) => a.orden.compareTo(b.orden));
 
   final List<Estado> estados;
-  final List<Reporte> reportes;
 
-  int cuantosEn(Estado estado) =>
-      reportes.where((r) => r.estado.id == estado.id).length;
+  /// Cuántos reportes hay en cada estado (por id).
+  final Map<int, int> conteos;
+
+  /// Los que se movieron más recientemente.
+  final List<Reporte> recientes;
+
+  int cuantosEn(Estado estado) => conteos[estado.id] ?? 0;
 
   bool esFinal(Estado estado) => estado.id == estados.last.id;
 
+  int get total => conteos.values.fold(0, (suma, n) => suma + n);
+
   int get resueltos => cuantosEn(estados.last);
 
-  int get enCamino => reportes.length - resueltos;
-
-  /// Los tres que se movieron más recientemente.
-  List<Reporte> get recientes {
-    final ordenados = [...reportes]
-      ..sort((a, b) => b.actualizacion.compareTo(a.actualizacion));
-    return ordenados.take(3).toList();
-  }
+  int get enCamino => total - resueltos;
 }
 
 class _EstadoPantallaPrincipal extends State<PantallaPrincipal> {
@@ -64,14 +64,17 @@ class _EstadoPantallaPrincipal extends State<PantallaPrincipal> {
 
   Future<_Resumen> _cargar() async {
     final repositorio = widget.sesion.repositorio;
-    // Las dos peticiones salen al mismo tiempo.
+    // Las tres peticiones salen al mismo tiempo. No se traen todos los
+    // reportes: los conteos vienen del resumen y de la lista solo los 3 últimos.
     final resultados = await Future.wait<Object>([
       repositorio.listarEstados(),
-      repositorio.listarReportes(),
+      repositorio.resumenReportes(),
+      repositorio.listarReportes(limite: 3, orden: OrdenReportes.actualizacion),
     ]);
     return _Resumen(
       resultados[0] as List<Estado>,
-      resultados[1] as List<Reporte>,
+      resultados[1] as Map<int, int>,
+      resultados[2] as List<Reporte>,
     );
   }
 
@@ -101,16 +104,13 @@ class _EstadoPantallaPrincipal extends State<PantallaPrincipal> {
           future: _carga,
           builder: (context, estado) {
             if (estado.hasError) {
-              final error = estado.error;
-              return _Error(
-                mensaje: error is ErrorApi
-                    ? error.mensaje
-                    : 'No se pudieron cargar tus reportes.',
+              return ErrorWaypoint(
+                mensaje: ErrorWaypoint.mensajeDe(estado.error),
                 alReintentar: _recargar,
               );
             }
             final resumen = estado.data;
-            if (resumen == null) return const _Cargando();
+            if (resumen == null) return const CargandoWaypoint();
             return RefreshIndicator(
               onRefresh: _recargar,
               child: _contenido(context, resumen),
@@ -128,7 +128,7 @@ class _EstadoPantallaPrincipal extends State<PantallaPrincipal> {
 
     final enCamino = resumen.enCamino;
     final resueltos = resumen.resueltos;
-    final sinReportes = resumen.reportes.isEmpty;
+    final sinReportes = resumen.total == 0;
 
     final titulo = switch (enCamino) {
       _ when sinReportes => 'Aún no tienes reportes',
@@ -192,10 +192,9 @@ class _EstadoPantallaPrincipal extends State<PantallaPrincipal> {
                 for (final e in resumen.estados)
                   (nombre: e.nombre, cantidad: resumen.cuantosEn(e)),
               ],
-              // TODO(#26): abrir el listado filtrado por la parada tocada.
-              alTocar: widget.alVerReportes == null
+              alTocar: widget.alVerParada == null
                   ? null
-                  : (_) => widget.alVerReportes!(),
+                  : (i) => widget.alVerParada!(resumen.estados[i].id),
             ),
             const SizedBox(height: 16),
             _BotonReportar(alTocar: widget.alReportar),
@@ -357,58 +356,6 @@ class _FilaReporte extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Cargando extends StatelessWidget {
-  const _Cargando();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const MarcaWaypoint(tamano: 48, respira: true),
-          const SizedBox(height: 16),
-          Text(
-            'Cargando tus reportes',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Error extends StatelessWidget {
-  const _Error({required this.mensaje, required this.alReintentar});
-
-  final String mensaje;
-  final VoidCallback alReintentar;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              mensaje,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: alReintentar,
-              child: const Text('Reintentar'),
-            ),
-          ],
         ),
       ),
     );

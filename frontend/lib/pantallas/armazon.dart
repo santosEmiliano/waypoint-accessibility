@@ -27,16 +27,31 @@ class _EstadoArmazon extends State<Armazon> {
   // Posición de la sección que se está viendo.
   int _indice = 0;
 
+  // Inicio deja aquí la parada que se tocó y el listado se filtra por ella.
+  final _paradaPedida = ValueNotifier<int?>(null);
+
+  @override
+  void dispose() {
+    _paradaPedida.dispose();
+    super.dispose();
+  }
+
   Widget _pagina(Seccion seccion, List<Destino> destinos) {
     return switch (seccion) {
       Seccion.inicio => PantallaPrincipal(
         sesion: widget.sesion,
-        alVerReportes: () => setState(() {
-          _indice = destinos.indexWhere((d) => d.seccion == Seccion.reportes);
-        }),
+        alVerParada: (idEstado) {
+          _paradaPedida.value = idEstado;
+          setState(() {
+            _indice = destinos.indexWhere((d) => d.seccion == Seccion.reportes);
+          });
+        },
         alReportar: _abrirFormulario,
       ),
-      Seccion.reportes => const PantallaListado(),
+      Seccion.reportes => PantallaListado(
+        sesion: widget.sesion,
+        paradaPedida: _paradaPedida,
+      ),
       Seccion.bandeja => const PantallaAdministracion(),
       Seccion.perfil => PantallaPerfil(sesion: widget.sesion),
       // "Nuevo" no es una sección, es un formulario, por lo que aquí no se muestra.
