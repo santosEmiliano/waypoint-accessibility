@@ -10,10 +10,12 @@ import {
   nulable,
   opcional,
   texto,
+  unoDe,
   type Esquema,
   type ReglaCruzada,
   type Seccion,
 } from "./validacion";
+import type { OrdenReportes } from "../db/reportes";
 
 // Máximos de las columnas: INT UNSIGNED para los reportes, TINYINT UNSIGNED para los catálogos
 const MAX_INT_UNSIGNED = 4_294_967_295;
@@ -24,6 +26,16 @@ const idCatalogo = entero({ max: MAX_TINYINT_UNSIGNED });
 
 // La API pone este tope a los textos largos; la columna TEXT admite más (ver docs/api.md)
 const TEXTO_LARGO = 2000;
+
+// Texto que se busca en el título, la descripción o la ubicación
+const busqueda = texto({ max: 100 });
+
+// Máximo de reportes por página, para que nadie pida un millón de un golpe
+const LIMITE_MAXIMO = 100;
+
+// Los órdenes de listarReportes (db/reportes.ts). Se repiten aquí para no cargar la BD en la
+// validación; `satisfies` avisa al compilar si dejan de coincidir.
+const ORDENES_REPORTES = ["creacion", "actualizacion"] as const satisfies readonly OrdenReportes[];
 
 // `/reportes/:id`
 const paramsReporte: Seccion = { campos: { id: idReporte } };
@@ -99,14 +111,29 @@ export const esquemas = {
   // POST /reportes
   crearReporte: { body: cuerpoReporte },
 
-  // GET /reportes?id_estado=&id_categoria=&q=&cancelados=
+  // GET /reportes?id_estado=&id_categoria=&q=&cancelados=&limite=&desde=&orden=
+  // Sin `limite` devuelve todos; `desde` es cuántos saltarse (0 = la primera página)
   listarReportes: {
     query: {
       campos: {
         id_estado: opcional(idCatalogo),
         id_categoria: opcional(idCatalogo),
-        q: opcional(texto({ max: 100 })),
+        q: opcional(busqueda),
         cancelados: opcional(booleano()),
+        limite: opcional(entero({ max: LIMITE_MAXIMO })),
+        desde: opcional(entero({ min: 0, max: MAX_INT_UNSIGNED })),
+        orden: opcional(unoDe(ORDENES_REPORTES)),
+      },
+    },
+  },
+
+  // GET /reportes/resumen?id_categoria=&q=: los mismos filtros que el listado, menos el estado
+  // (el resumen es el conteo por estado) y los cancelados (no se cuentan)
+  resumenReportes: {
+    query: {
+      campos: {
+        id_categoria: opcional(idCatalogo),
+        q: opcional(busqueda),
       },
     },
   },
