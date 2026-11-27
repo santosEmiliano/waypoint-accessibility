@@ -137,7 +137,7 @@ npm run db:seed
 
 ### Backend
 
-Requiere Node.js 22.12 o superior.
+Requiere Node.js 22.12 o superior. Está escrito en TypeScript y corre con tsx, sin compilar.
 
 1. Copiar las variables de entorno en la raíz del repositorio. El backend lee el `.env` de la raíz, no de `backend/`, y sin ese archivo no arranca.
 
@@ -155,18 +155,28 @@ Requiere Node.js 22.12 o superior.
    npm install
    ```
 
-3. Levantar el servidor. Se reinicia solo al guardar cambios.
+3. Levantar la BD y generar el cliente de Prisma, como se explica en [Base de datos](#base-de-datos) y [Esquema con Prisma](#esquema-con-prisma). Sin la BD el servidor no arranca.
+
+4. Levantar el servidor. Se reinicia solo al guardar cambios.
 
    ```
    npm run dev
    ```
 
+   Al arrancar comprueba la conexión a la BD y debe mostrar `Conectado a la BD`. Si la BD no responde, tarda unos 20 segundos, muestra la causa y se detiene.
+
    Para comprobar que está activo, abrir `http://localhost:3000/health`, que responde `{"estado":"ok"}`.
 
-4. Correr las pruebas automáticas. No necesitan el servidor levantado.
+5. Correr las pruebas automáticas. No necesitan el servidor ni la BD levantados.
 
    ```
    npm test
+   ```
+
+6. Revisar los tipos de TypeScript. Ni el servidor ni las pruebas los revisan: corren el código aunque tenga errores de tipos.
+
+   ```
+   npm run typecheck
    ```
 
 **Pruebas en Postman:** importar `docs/postman/waypoint-api.postman_collection.json` con **Import**. Las peticiones apuntan a `http://localhost:3000`, así que el servidor debe estar levantado.
