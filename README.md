@@ -24,7 +24,7 @@ Proyecto final de **Programación de Dispositivos Móviles**, Universidad Autón
 |---|---|---|
 | `frontend/` | Aplicación Flutter | Santos |
 | `backend/` | API REST y controladores | Harim |
-| `database/` | Scripts SQL, semillas y configuración de la BD | Julián |
+| `database/` | Modelo entidad-relación, script SQL del esquema y acuerdos con la API ([guía de la BD](database/README.md)) | Julián |
 | `docs/` | Diagrama entidad-relación, contrato de la API, funciones de acceso a datos | Los tres |
 | `.github/` | Plantilla de Pull Request y Workflows | Los tres |
 
@@ -193,6 +193,6 @@ flutter run -d chrome --web-port=8080
 
 Se agrega en `docs/` conforme avanza el proyecto:
 
-- Diagrama entidad-relación (Julián).
+- [Guía de la base de datos](database/README.md): modelo entidad-relación, tablas y cómo crear la BD desde cero (Julián).
 - Contrato de la API (Harim).
 - Funciones de acceso a datos (Julián).
