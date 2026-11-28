@@ -101,7 +101,7 @@ De las personas solo se devuelve el id y el nombre, nunca el correo. La API camb
 - **Lanza:** `Error` si viene solo la latitud o solo la longitud (van juntas), y el error de la BD si la categoría o el usuario no existen (llave foránea). No deja nada guardado.
 - Las validaciones de largo y de rango (`docs/api.md`) son de la API.
 
-### `listarReportes({ idUsuario?, idEstado?, idCategoria?, texto?, cancelados? })`
+### `listarReportes({ idUsuario?, idEstado?, idCategoria?, texto?, cancelados? }, { limite?, desde?, orden? })`
 
 Todos los filtros son opcionales y **se combinan** (se cumplen todos a la vez).
 
@@ -113,8 +113,26 @@ Todos los filtros son opcionales y **se combinan** (se cumplen todos a la vez).
 | `texto` | Los que lo tengan en el título, la descripción o la ubicación. No distingue mayúsculas ni acentos (lo decide la colación de MySQL). Un texto vacío no filtra. `%`, `_` y `\` se buscan como texto, no como comodines (`escaparLike`) |
 | `cancelados` | Con `true` devuelve **solo** los cancelados. Sin él, los cancelados no aparecen |
 
-- **Retorna:** `Reporte[]`, los más recientes primero. Sin resultados devuelve `[]`.
+El segundo argumento es la página, también opcional:
+
+| Campo | Efecto |
+|---|---|
+| `limite` | Cuántos devolver (`take`). Sin él devuelve todos, como antes |
+| `desde` | Cuántos saltarse (`skip`). La página `n` (empezando en 0) es `desde = n * limite` |
+| `orden` | `"creacion"` (por defecto): los creados más recientemente primero. `"actualizacion"`: los que cambiaron más recientemente primero |
+
+- **Retorna:** `Reporte[]`, del más nuevo al más viejo según `orden`. Sin resultados (o con `desde` más allá del final) devuelve `[]`.
+- **Desempate por id:** las fechas se guardan al segundo, así que dos reportes pueden tener la misma. Con el mismo segundo va primero el id más alto. Sin ese desempate, el orden entre ellos podría cambiar de una consulta a otra y un reporte se repetiría o se saltaría al pasar de página.
 - `armarFiltros(filtros)` es la parte que arma el `WHERE`; está exportada para probarla sola.
+
+### `contarReportesPorEstado({ idUsuario?, idCategoria?, texto? })`
+
+Para el resumen de la pantalla principal (`GET /reportes/resumen`).
+
+- Cuenta los reportes **no cancelados** de cada estado, con los mismos filtros que `listarReportes`: con `idUsuario` solo los de ese usuario (la API lo manda para un `usuario` y no para el `operador`).
+- No acepta `idEstado` ni `cancelados`: el resumen es justo el conteo por estado de los que siguen activos.
+- El conteo es una sola consulta (`groupBy` por `id_estado`). Aparte se lee el catálogo de estados para devolver también los que tienen 0.
+- **Retorna:** `[{ idEstado, total }]` con **los 4 estados**, en su orden (Reportado → Resuelto), aunque alguno esté en 0. La API lo responde como `[{ "id_estado": 1, "total": 2 }, ...]`.
 
 ### `obtenerReporte(idReporte, { idUsuario? })`
 
@@ -249,5 +267,6 @@ if (estadoNuevo.ordenEstado === ORDEN_ESTADO_FINAL) {
 - `backend/tests/reportes.test.ts` y `backend/tests/evidencias.test.ts`: lógica de las funciones con Prisma simulado (no necesitan la BD).
 - `backend/tests/historial.integracion.test.ts`: contra la **BD real**, incluida la prueba de que si falla el historial el estado no cambia, y la de `consultarHistorial` (orden, responsable y quién puede verlo).
 - `backend/tests/evidencias.integracion.test.ts`: contra la **BD real**: ruta repetida, reporte que no existe, conteo por tipo, orden y quién puede ver las fotos.
+- `backend/tests/paginacion.integracion.test.ts`: contra la **BD real**: que las páginas juntas den la lista completa sin repetir ni saltar (con reportes del mismo segundo), el orden por actualización y el resumen por estado (los 4 estados, sin cancelados, con filtros).
 
 Las de BD real necesitan `docker compose up -d` con la BD migrada y sembrada; si no está disponible, se saltan solas.

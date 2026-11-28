@@ -23,8 +23,8 @@ express.json()  →  sanitizar  →  autenticar  →  validar(esquema)  →  con
 ## Validación (`validar`)
 
 ```js
-import { validar } from "./middlewares/validacion.ts";
-import { esquemas } from "./middlewares/esquemas.ts";
+import { validar } from "./middlewares/validacion";
+import { esquemas } from "./middlewares/esquemas";
 
 router.post("/reportes", autenticar, validar(esquemas.crearReporte), (req, res) => {
   const { titulo_reporte, id_categoria } = req.body; // ya validado y limpio
@@ -64,7 +64,8 @@ Qué hace:
 | `actualizarUsuario` | `PUT /auth/usuario` | Nombre opcional; contraseña actual y nueva van juntas; al menos un cambio |
 | `crearReporte` | `POST /reportes` | Título (1–200), descripción (1–2000), categoría, ubicación (1–255), coordenadas opcionales y juntas |
 | `editarReporte` | `PUT /reportes/:id` | El id y el mismo cuerpo que al crear |
-| `listarReportes` | `GET /reportes` | `id_estado`, `id_categoria`, `q` (hasta 100) y `cancelados` (`true` o `false`), todos opcionales |
+| `listarReportes` | `GET /reportes` | `id_estado`, `id_categoria`, `q` (hasta 100), `cancelados` (`true` o `false`), `limite` (1–100), `desde` (0 o más) y `orden` (`creacion` o `actualizacion`), todos opcionales |
+| `resumenReportes` | `GET /reportes/resumen` | `id_categoria` y `q` (hasta 100), opcionales. El estado, los cancelados y la página se ignoran |
 | `idReporte` | `GET /reportes/:id`, historial, evidencias, asignar | Solo el id |
 | `cancelarReporte` | `PATCH /reportes/:id/cancelar` | La razón, opcional (hasta 2000). Sin razón queda en `null` |
 | `cambiarEstado` | `PATCH /reportes/:id/estado` | `id_estado` y el comentario opcional (hasta 2000) |
@@ -78,6 +79,7 @@ Qué hace:
 | `entero({ max, min? })` | `7` o `"7"` (los parámetros y la query siempre llegan como texto) | Un número. `max` es el tope de la columna, para que un id enorme dé `400` y no un `500` de la BD |
 | `decimal({ min, max, decimales })` | Un número (no un texto) dentro del rango y con máximo esos decimales | El número |
 | `booleano()` | `true`, `false`, `"true"` o `"false"` | `true` o `false` |
+| `unoDe(valores)` | Uno de los valores de la lista, escrito igual (`"CREACION"` no vale) | El valor. El error dice cuáles se aceptan |
 | `correo({ max })` | Un correo con formato `algo@dominio.ext` | En minúsculas y sin espacios |
 | `contrasenaNueva()` | Las reglas de `auth/contrasenas.ts` | La contraseña tal cual, sin limpiar ni recortar |
 | `contrasenaGuardada()` | Cualquier texto no vacío | La contraseña tal cual |

@@ -111,13 +111,53 @@ export function armarFiltros(filtros: FiltrosReportes): Prisma.ReporteWhereInput
   return where;
 }
 
-// Lista los reportes que cumplan todos los filtros, los más recientes primero.
-export async function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]> {
+// `creacion`: los creados más recientemente primero. `actualizacion`: los que cambiaron más recientemente primero.
+export type OrdenReportes = "creacion" | "actualizacion";
+
+export type PaginaReportes = {
+  // Cuántos devolver. Sin él, todos
+  limite?: number;
+  // Cuántos saltarse desde el inicio (para pedir la siguiente página: desde = página * limite)
+  desde?: number;
+  // Por defecto `creacion`
+  orden?: OrdenReportes;
+};
+
+// Lista los reportes que cumplan todos los filtros, del más nuevo al más viejo según `orden`.
+// El desempate por id hace que el orden sea siempre el mismo: sin él, dos reportes con la misma
+// fecha podrían cambiar de lugar entre una página y otra, y uno se repetiría o se saltaría.
+export async function listarReportes(filtros: FiltrosReportes = {}, pagina: PaginaReportes = {}): Promise<Reporte[]> {
+  const campoFecha = pagina.orden === "actualizacion" ? "actualizacionReporte" : "creacionReporte";
   return prisma.reporte.findMany({
     where: armarFiltros(filtros),
     select: seleccionReporte,
-    orderBy: [{ creacionReporte: "desc" }, { idReporte: "desc" }],
+    orderBy: [{ [campoFecha]: "desc" }, { idReporte: "desc" }],
+    ...(pagina.limite !== undefined && { take: pagina.limite }),
+    ...(pagina.desde !== undefined && { skip: pagina.desde }),
   });
+}
+
+export type ConteoPorEstado = { idEstado: number; total: number };
+
+// Cuántos reportes no cancelados hay en cada estado, con los mismos filtros que listarReportes:
+// con idUsuario solo cuenta los de ese usuario (el operador no lo manda y cuenta todos).
+// Devuelve los 4 estados en su orden, aunque alguno tenga 0. El estado y los cancelados no se
+// aceptan como filtro: el resumen es justo el conteo por estado de los que siguen activos.
+export async function contarReportesPorEstado(
+  filtros: Pick<FiltrosReportes, "idUsuario" | "idCategoria" | "texto"> = {},
+): Promise<ConteoPorEstado[]> {
+  const { idUsuario, idCategoria, texto } = filtros;
+  const [estados, grupos] = await Promise.all([
+    prisma.estado.findMany({ select: { idEstado: true }, orderBy: { ordenEstado: "asc" } }),
+    // Una sola consulta: SELECT id_estado, COUNT(*) ... GROUP BY id_estado
+    prisma.reporte.groupBy({
+      by: ["idEstado"],
+      where: armarFiltros({ idUsuario, idCategoria, texto }),
+      _count: { _all: true },
+    }),
+  ]);
+  const totales = new Map(grupos.map((grupo) => [grupo.idEstado, grupo._count._all]));
+  return estados.map(({ idEstado }) => ({ idEstado, total: totales.get(idEstado) ?? 0 }));
 }
 
 // Detalle de un reporte, cancelado o no. Si se pasa idUsuario solo lo devuelve cuando es suyo:
